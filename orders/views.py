@@ -1,16 +1,21 @@
 import json
+from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
+from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Exists, OuterRef, F, Sum, IntegerField, ExpressionWrapper
+from django.db.models import Avg, Count, Exists, OuterRef, F, Sum, IntegerField, ExpressionWrapper
+from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 from urllib.parse import urlencode
 
 from accounts.models import User
 from .decorators import role_required
-from .models import Table, Category, Order, OrderItem, MenuItem, KitchenStation
+from .models import Bill, Table, Category, Order, OrderItem, MenuItem, KitchenStation
 from .utils import print_restaurant_receipt
 from . import signals  # noqa: F401  (registers the signal handlers)
 
@@ -229,22 +234,24 @@ def tables_for_billing(request):
 
 @role_required([User.ROLE_CHOICES.BILLING])
 def billing_tables_status_live(request):
-    # Tables that have served orders and nothing still in the kitchen -> ready to pay
-    active_orders = Order.objects.exclude(status__in=INACTIVE_ORDER_STATUSES)
-    served_tables = set(
-        active_orders.filter(status=Order.ORDER_STATUS.SERVED).values_list('table', flat=True)
+    # Same rule as the bill page: the table has unpaid items and every one is served
+    unpaid_items = (
+        OrderItem.objects
+        .exclude(order__status__in=INACTIVE_ORDER_STATUSES)
+        .exclude(status=OrderItem.ITEM_STATUS.CANCELLED)
     )
-    busy_tables = set(
-        active_orders.exclude(status=Order.ORDER_STATUS.SERVED).values_list('table', flat=True)
+    tables_with_items = set(unpaid_items.values_list("order__table", flat=True))
+    tables_still_waiting = set(
+        unpaid_items.exclude(status=OrderItem.ITEM_STATUS.SERVED).values_list("order__table", flat=True)
     )
-    return JsonResponse({'tables': list(served_tables - busy_tables)})
+    return JsonResponse({'tables': sorted(tables_with_items - tables_still_waiting)})
 
 
 @role_required([User.ROLE_CHOICES.BILLING])
 def billing_view(request, table_id):
     table = get_object_or_404(Table, pk=table_id)
     order_items = get_billable_items(table.id)
-    total = order_items.aggregate(total=Sum("item_total"))["total"] or 0
+    subtotal = order_items.aggregate(total=Sum("item_total"))["total"] or 0
 
     # Can only bill when there are items and every one of them has been served
     proceed_billing = (
@@ -255,16 +262,48 @@ def billing_view(request, table_id):
     return render(request, "orders/billing.html", {
         "table": table,
         "items": order_items,
-        "total": total,
+        "amounts": Bill.calculate(subtotal),
+        "service_charge_percent": settings.SERVICE_CHARGE_PERCENT,
+        "vat_percent": settings.VAT_PERCENT,
+        "payment_methods": Bill.PAYMENT_METHOD.choices,
         "proceed_billing": proceed_billing,
         "table_id": table.id,
     })
+
+
+def build_receipt_data(bill):
+    """Collect everything the printer needs from a saved bill."""
+    items = (
+        OrderItem.objects
+        .filter(order__bill=bill)
+        .exclude(status=OrderItem.ITEM_STATUS.CANCELLED)
+        .select_related("menu_item")
+    )
+    return {
+        "bill_number": bill.bill_number,
+        "table_name": bill.table.name,
+        "date": timezone.localtime(bill.created_at).strftime("%Y-%m-%d %I:%M %p"),
+        "payment_method": bill.get_payment_method_display(),
+        "items": [
+            {"name": item.menu_item.name, "price": item.price * item.quantity, "qty": item.quantity}
+            for item in items
+        ],
+        "subtotal": bill.subtotal,
+        "service_charge": bill.service_charge,
+        "vat": bill.vat,
+        "total": bill.total,
+    }
 
 
 @require_POST
 @role_required([User.ROLE_CHOICES.BILLING])
 def billing_paid_view(request, table_id):
     table = get_object_or_404(Table, pk=table_id)
+
+    payment_method = request.POST.get("payment_method")
+    if payment_method not in Bill.PAYMENT_METHOD.values:
+        messages.warning(request, "Please choose a payment method.")
+        return redirect("billing_view_url", table_id=table.id)
 
     with transaction.atomic():
         order_items = list(get_billable_items(table.id))
@@ -277,29 +316,203 @@ def billing_paid_view(request, table_id):
             messages.warning(request, f"{table.name} still has items that are not served.")
             return redirect("billing_view_url", table_id=table.id)
 
-        # Recalculate the total here so it is always up to date
-        total = sum(item.item_total for item in order_items)
-        print_data = {
-            "table_name": table.name,
-            "total": total,
-            "items": [
-                {"name": item.menu_item.name, "price": item.item_total, "qty": item.quantity}
-                for item in order_items
-            ],
-        }
+        # Recalculate here so the saved amounts are always up to date
+        subtotal = sum(item.item_total for item in order_items)
+        bill = Bill.objects.create(
+            table=table,
+            payment_method=payment_method,
+            billed_by=request.user,
+            **Bill.calculate(subtotal),
+        )
 
         # .save() on each order so the signal records the Billed status in history
         orders = Order.objects.filter(table=table).exclude(status__in=INACTIVE_ORDER_STATUSES)
         for order in orders:
             order.status = Order.ORDER_STATUS.BILLED
+            order.bill = bill
             order.save()
 
-    messages.success(request, f"{table.name} paid: Rs. {total}.")
+    messages.success(request, f"{table.name} paid: Rs. {bill.total} ({bill.get_payment_method_display()}).")
 
-    if not print_restaurant_receipt(print_data):
+    if not print_restaurant_receipt(build_receipt_data(bill)):
         messages.warning(request, "Receipt printer not reachable, so no receipt was printed.")
 
-    return redirect("tables_for_billing_url")
+    return redirect("bill_detail_url", pk=bill.pk)
+
+
+@role_required([User.ROLE_CHOICES.BILLING, User.ROLE_CHOICES.OWNER])
+def bill_detail_view(request, pk):
+    bill = get_object_or_404(Bill.objects.select_related("table", "billed_by"), pk=pk)
+    items = (
+        OrderItem.objects
+        .filter(order__bill=bill)
+        .select_related("menu_item")
+        .annotate(
+            item_total=ExpressionWrapper(F("quantity") * F("price"), output_field=IntegerField())
+        )
+    )
+    return render(request, "orders/bill-detail.html", {
+        "bill": bill,
+        "items": items,
+        "service_charge_percent": settings.SERVICE_CHARGE_PERCENT,
+        "vat_percent": settings.VAT_PERCENT,
+    })
+
+
+@require_POST
+@role_required([User.ROLE_CHOICES.BILLING, User.ROLE_CHOICES.OWNER])
+def bill_reprint_view(request, pk):
+    bill = get_object_or_404(Bill, pk=pk)
+    if print_restaurant_receipt(build_receipt_data(bill)):
+        messages.success(request, f"Receipt for {bill.bill_number} sent to the printer.")
+    else:
+        messages.warning(request, "Receipt printer not reachable, so no receipt was printed.")
+    return redirect("bill_detail_url", pk=bill.pk)
+
+
+@role_required([User.ROLE_CHOICES.BILLING])
+def todays_bills_view(request):
+    bills = (
+        Bill.objects
+        .filter(created_at__date=timezone.localdate())
+        .select_related("table", "billed_by")
+    )
+    return render(request, "orders/todays-bills.html", {
+        "bills": bills,
+        "total": bills.aggregate(total=Sum("total"))["total"] or 0,
+    })
+
+
+# ---------------------------------------------------------------
+# Owner
+# ---------------------------------------------------------------
+
+OWNER_RANGES = {
+    "today": ("Today", 1),
+    "7d": ("Last 7 days", 7),
+    "30d": ("Last 30 days", 30),
+}
+
+
+@role_required([User.ROLE_CHOICES.OWNER])
+def owner_dashboard_view(request):
+    range_key = request.GET.get("range", "today")
+    if range_key not in OWNER_RANGES:
+        range_key = "today"
+    range_label, days = OWNER_RANGES[range_key]
+
+    today = timezone.localdate()
+    start_date = today - timedelta(days=days - 1)
+
+    bills = Bill.objects.filter(created_at__date__gte=start_date)
+    summary = bills.aggregate(revenue=Sum("total"), count=Count("id"), average=Avg("total"))
+
+    # Items that were actually sold (served and paid) in this period
+    sold_items = OrderItem.objects.filter(
+        order__bill__in=bills, status=OrderItem.ITEM_STATUS.SERVED
+    )
+    items_sold = sold_items.aggregate(qty=Sum("quantity"))["qty"] or 0
+    top_items = (
+        sold_items
+        .values("menu_item__name")
+        .annotate(
+            qty=Sum("quantity"),
+            revenue=Sum(ExpressionWrapper(F("quantity") * F("price"), output_field=IntegerField())),
+        )
+        .order_by("-qty", "-revenue")[:5]
+    )
+
+    cancelled_items = OrderItem.objects.filter(
+        status=OrderItem.ITEM_STATUS.CANCELLED,
+        order__created_at__date__gte=start_date,
+    ).aggregate(qty=Sum("quantity"))["qty"] or 0
+
+    # Revenue split by payment method
+    by_method_raw = dict(
+        bills.values_list("payment_method").annotate(total=Sum("total")).values_list("payment_method", "total")
+    )
+    revenue = summary["revenue"] or 0
+    payment_split = []
+    for value, label in Bill.PAYMENT_METHOD.choices:
+        amount = by_method_raw.get(value) or 0
+        percent = round(amount / revenue * 100) if revenue else 0
+        payment_split.append({"label": label, "amount": amount, "percent": percent})
+
+    # Daily revenue for the chart (always at least the last 7 days)
+    chart_days = max(days, 7)
+    chart_start = today - timedelta(days=chart_days - 1)
+    daily_raw = dict(
+        Bill.objects
+        .filter(created_at__date__gte=chart_start)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(total=Sum("total"))
+        .values_list("day", "total")
+    )
+    daily = [
+        {"day": chart_start + timedelta(days=i), "total": daily_raw.get(chart_start + timedelta(days=i)) or 0}
+        for i in range(chart_days)
+    ]
+    max_daily = max((d["total"] for d in daily), default=0)
+    for d in daily:
+        d["percent"] = round(d["total"] / max_daily * 100) if max_daily else 0
+
+    # What is happening right now
+    active_tables = (
+        Order.objects.exclude(status__in=INACTIVE_ORDER_STATUSES).values("table").distinct().count()
+    )
+    in_kitchen = OrderItem.objects.filter(status=OrderItem.ITEM_STATUS.PREPARING).count()
+
+    return render(request, "orders/owner-dashboard.html", {
+        "range_key": range_key,
+        "range_label": range_label,
+        "ranges": [(key, label) for key, (label, _) in OWNER_RANGES.items()],
+        "revenue": revenue,
+        "bill_count": summary["count"] or 0,
+        "average_bill": summary["average"] or 0,
+        "items_sold": items_sold,
+        "cancelled_items": cancelled_items,
+        "top_items": top_items,
+        "payment_split": payment_split,
+        "daily": daily,
+        "active_tables": active_tables,
+        "total_tables": Table.objects.count(),
+        "in_kitchen": in_kitchen,
+        "recent_bills": bills.select_related("table", "billed_by")[:10],
+    })
+
+
+def safe_parse_date(value):
+    """'2026-11-03' -> date, anything empty or invalid -> None."""
+    try:
+        return parse_date(value or "")
+    except ValueError:
+        return None
+
+
+@role_required([User.ROLE_CHOICES.OWNER])
+def owner_bills_view(request):
+    bills = Bill.objects.select_related("table", "billed_by")
+
+    date_from = safe_parse_date(request.GET.get("from"))
+    date_to = safe_parse_date(request.GET.get("to"))
+    method = request.GET.get("method") or ""
+    if date_from:
+        bills = bills.filter(created_at__date__gte=date_from)
+    if date_to:
+        bills = bills.filter(created_at__date__lte=date_to)
+    if method in Bill.PAYMENT_METHOD.values:
+        bills = bills.filter(payment_method=method)
+
+    return render(request, "orders/owner-bills.html", {
+        "bills": bills[:200],
+        "total": bills.aggregate(total=Sum("total"))["total"] or 0,
+        "count": bills.count(),
+        "date_from": date_from.isoformat() if date_from else "",
+        "date_to": date_to.isoformat() if date_to else "",
+        "method": method,
+        "payment_methods": Bill.PAYMENT_METHOD.choices,
+    })
 
 
 # ---------------------------------------------------------------

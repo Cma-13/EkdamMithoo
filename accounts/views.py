@@ -1,36 +1,38 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from .models import User
+from .utils import get_home_url
 
 
 def login_view(request):
+    # Already logged in -> go straight to the right dashboard
+    if request.user.is_authenticated:
+        home_url = get_home_url(request.user)
+        if home_url:
+            return redirect(home_url)
+
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
         remember_me = request.POST.get('remember-me')
-        
-        
+
         user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            messages.success(request, 'Login successful.')
-            if remember_me is None:
-                request.session.set_expiry(0)
-                
-            if user.role == User.ROLE_CHOICES.WAITER:
-                return redirect('tables_view_url')
-            elif user.role == User.ROLE_CHOICES.KITCHEN:
-                return redirect('kitchen_dashboard_view_url') 
-            elif user.role == User.ROLE_CHOICES.BILLING:
-                return redirect('tables_for_billing_url') 
-        else:
+        if user is None:
             messages.error(request, 'Invalid credentials.')
             return redirect('login_view_url')
-    
-   
-    
-    
+
+        home_url = get_home_url(user)
+        if home_url is None:
+            messages.error(request, 'Your account has no role assigned. Please contact the owner.')
+            return redirect('login_view_url')
+
+        login(request, user)
+        if remember_me is None:
+            # Session ends when the browser is closed
+            request.session.set_expiry(0)
+
+        return redirect(home_url)
+
     return render(request, 'accounts/login.html')
 
 

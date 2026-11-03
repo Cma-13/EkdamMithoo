@@ -1,0 +1,7 @@
+{% for station_name, items in order_items.items %}
+  {% include 'orders/station-card.html' %}
+{% empty %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-12 text-center text-gray-500">
+    No pending orders. The kitchen is all caught up.
+  </div>
+{% endfor %}

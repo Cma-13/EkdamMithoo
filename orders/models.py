@@ -57,6 +57,8 @@ class MenuItem(models.Model):
     default_priority = models.CharField(choices=PRIORITY_CHOICES, default=PRIORITY_CHOICES.MEDIUM, max_length=2)
     est_time = models.PositiveIntegerField(help_text="Write estimated preparation time in minutes", null=True, blank=True)
     station = models.ForeignKey(KitchenStation, on_delete=models.SET_NULL, null=True, related_name='items')
+    image = models.ImageField(upload_to='menu/', null=True, blank=True, help_text="Shown on the website")
+    is_featured = models.BooleanField(default=False, help_text="Show in 'Today's favourites' on the website")
     
     def __str__(self):
         return self.name
@@ -144,4 +146,28 @@ class OrderHistory(models.Model):
         verbose_name_plural = 'Order Histories'
     def __str__(self):
         return f"{self.order} -> {self.status}"
-    
+
+
+class Reservation(models.Model):
+    """A table booking made by a customer from the website."""
+
+    class STATUS(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        CONFIRMED = 'confirmed', 'Confirmed'
+        ARRIVED = 'arrived', 'Arrived'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    name = models.CharField(max_length=100)
+    phone = models.CharField(max_length=20)
+    guests = models.PositiveSmallIntegerField()
+    date = models.DateField()
+    time = models.TimeField()
+    note = models.CharField(max_length=300, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS, default=STATUS.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'time']
+
+    def __str__(self):
+        return f"{self.name} - {self.guests} guests - {self.date} {self.time:%H:%M}"

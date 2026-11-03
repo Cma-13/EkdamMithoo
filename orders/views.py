@@ -1,7 +1,6 @@
 import json
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
-from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Avg, Count, Exists, OuterRef, F, Sum, IntegerField, ExpressionWrapper
@@ -251,7 +250,7 @@ def billing_tables_status_live(request):
 def billing_view(request, table_id):
     table = get_object_or_404(Table, pk=table_id)
     order_items = get_billable_items(table.id)
-    subtotal = order_items.aggregate(total=Sum("item_total"))["total"] or 0
+    total = order_items.aggregate(total=Sum("item_total"))["total"] or 0
 
     # Can only bill when there are items and every one of them has been served
     proceed_billing = (
@@ -262,10 +261,11 @@ def billing_view(request, table_id):
     return render(request, "orders/billing.html", {
         "table": table,
         "items": order_items,
-        "amounts": Bill.calculate(subtotal),
-        "service_charge_percent": settings.SERVICE_CHARGE_PERCENT,
-        "vat_percent": settings.VAT_PERCENT,
-        "payment_methods": Bill.PAYMENT_METHOD.choices,
+        "total": total,
+        "payment_methods": [
+            (value, label, Bill.PAYMENT_LOGOS.get(value))
+            for value, label in Bill.PAYMENT_METHOD.choices
+        ],
         "proceed_billing": proceed_billing,
         "table_id": table.id,
     })
@@ -288,9 +288,6 @@ def build_receipt_data(bill):
             {"name": item.menu_item.name, "price": item.price * item.quantity, "qty": item.quantity}
             for item in items
         ],
-        "subtotal": bill.subtotal,
-        "service_charge": bill.service_charge,
-        "vat": bill.vat,
         "total": bill.total,
     }
 
@@ -316,13 +313,12 @@ def billing_paid_view(request, table_id):
             messages.warning(request, f"{table.name} still has items that are not served.")
             return redirect("billing_view_url", table_id=table.id)
 
-        # Recalculate here so the saved amounts are always up to date
-        subtotal = sum(item.item_total for item in order_items)
+        # Recalculate here so the saved total is always up to date
         bill = Bill.objects.create(
             table=table,
+            total=sum(item.item_total for item in order_items),
             payment_method=payment_method,
             billed_by=request.user,
-            **Bill.calculate(subtotal),
         )
 
         # .save() on each order so the signal records the Billed status in history
@@ -332,7 +328,7 @@ def billing_paid_view(request, table_id):
             order.bill = bill
             order.save()
 
-    messages.success(request, f"{table.name} paid: Rs. {bill.total} ({bill.get_payment_method_display()}).")
+    messages.success(request, f"{table.name} paid: Rs. {bill.total:,.2f} ({bill.get_payment_method_display()}).")
 
     if not print_restaurant_receipt(build_receipt_data(bill)):
         messages.warning(request, "Receipt printer not reachable, so no receipt was printed.")
@@ -354,8 +350,6 @@ def bill_detail_view(request, pk):
     return render(request, "orders/bill-detail.html", {
         "bill": bill,
         "items": items,
-        "service_charge_percent": settings.SERVICE_CHARGE_PERCENT,
-        "vat_percent": settings.VAT_PERCENT,
     })
 
 

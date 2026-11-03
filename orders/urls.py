@@ -18,4 +18,11 @@ urlpatterns = [
     path("billing/tables/live/", views.billing_tables_status_live, name="billing_tables_status_live_url"),
     path("billing/<int:table_id>/paid/", views.billing_paid_view, name="billing_paid_view_url"),
     path("billing/<int:table_id>/", views.billing_view, name="billing_view_url"),
+    path("billing/bills/today/", views.todays_bills_view, name="todays_bills_url"),
+    path("bills/<int:pk>/", views.bill_detail_view, name="bill_detail_url"),
+    path("bills/<int:pk>/reprint/", views.bill_reprint_view, name="bill_reprint_url"),
+
+    # Owner
+    path("owner/dashboard/", views.owner_dashboard_view, name="owner_dashboard_url"),
+    path("owner/bills/", views.owner_bills_view, name="owner_bills_url"),
 ]

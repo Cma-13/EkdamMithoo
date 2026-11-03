@@ -60,7 +60,11 @@
               <button class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg">Ready</button>
             </form>
 
-            <form method="post" onsubmit="return confirm('Cancel this item? It will be removed from the bill.')">
+            <form method="post"
+              data-confirm-title="Cancel this item?"
+              data-confirm="{{ order_item }} for {{ order_item.order.table.name }} will be cancelled and removed from the bill."
+              data-confirm-button="Yes, cancel item"
+              data-confirm-variant="danger">
               {% csrf_token %}
               <input type="hidden" name="status" value="cancel">
               <input type="hidden" name="station_code" value="{{ station_code }}">

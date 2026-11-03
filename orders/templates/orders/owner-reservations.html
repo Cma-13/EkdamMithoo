@@ -1,0 +1,112 @@
+{% extends 'orders/base.html' %}
+
+{% block title %}
+  Reservations
+{% endblock %}
+
+{% block heading %}
+  Owner Dashboard
+{% endblock %}
+
+{% block main_content %}
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-semibold text-slate-800">Reservations</h2>
+        <p class="text-slate-500">
+          Bookings made from the website.
+          {% if pending_count %}<span class="font-semibold text-amber-700">{{ pending_count }} waiting for your call.</span>{% endif %}
+        </p>
+      </div>
+
+      <div class="inline-flex rounded-lg border border-slate-300 bg-white p-1">
+        {% for key, label in tabs %}
+          <a href="?tab={{ key }}"
+            class="px-4 py-1.5 rounded-md text-sm font-medium transition
+              {% if key == tab %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">
+            {{ label }}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      {% if reservations %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-left">
+              <tr>
+                <th class="px-4 py-3 font-medium">When</th>
+                <th class="px-4 py-3 font-medium">Name</th>
+                <th class="px-4 py-3 font-medium">Phone</th>
+                <th class="px-4 py-3 font-medium">Guests</th>
+                <th class="px-4 py-3 font-medium">Note</th>
+                <th class="px-4 py-3 font-medium">Status</th>
+                <th class="px-4 py-3 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for booking in reservations %}
+                <tr class="align-top">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="font-semibold text-slate-800">{{ booking.date|date:"D, M j" }}</span><br>
+                    <span class="text-slate-500">{{ booking.time|time:"g:i A" }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-slate-800 font-medium">{{ booking.name }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <a href="tel:{{ booking.phone }}" class="text-blue-700 hover:underline">{{ booking.phone }}</a>
+                  </td>
+                  <td class="px-4 py-3 text-slate-800">{{ booking.guests }}</td>
+                  <td class="px-4 py-3 text-slate-600 max-w-[16rem]">{{ booking.note|default:"-" }}</td>
+                  <td class="px-4 py-3">
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap
+                      {% if booking.status == 'pending' %}bg-amber-100 text-amber-800
+                      {% elif booking.status == 'confirmed' %}bg-green-100 text-green-700
+                      {% elif booking.status == 'arrived' %}bg-blue-100 text-blue-700
+                      {% else %}bg-red-100 text-red-700{% endif %}">
+                      {{ booking.get_status_display }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex justify-end gap-2">
+                      {% if booking.status == 'pending' %}
+                        <form method="post" action="{% url 'reservation_status_url' booking.pk %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="confirmed">
+                          <input type="hidden" name="tab" value="{{ tab }}">
+                          <button class="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium whitespace-nowrap">Confirm</button>
+                        </form>
+                      {% endif %}
+                      {% if booking.status == 'pending' or booking.status == 'confirmed' %}
+                        <form method="post" action="{% url 'reservation_status_url' booking.pk %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="arrived">
+                          <input type="hidden" name="tab" value="{{ tab }}">
+                          <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 font-medium whitespace-nowrap">Arrived</button>
+                        </form>
+                        <form method="post" action="{% url 'reservation_status_url' booking.pk %}"
+                          data-confirm-title="Cancel this booking?"
+                          data-confirm="{{ booking.name }}'s booking for {{ booking.guests }} on {{ booking.date|date:'M j' }} at {{ booking.time|time:'g:i A' }} will be cancelled."
+                          data-confirm-button="Yes, cancel booking"
+                          data-confirm-variant="danger">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="cancelled">
+                          <input type="hidden" name="tab" value="{{ tab }}">
+                          <button class="px-3 py-1.5 rounded-lg text-red-700 hover:bg-red-50 font-medium whitespace-nowrap">Cancel</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="px-6 py-12 text-center text-slate-500">
+          {% if tab == 'today' %}No bookings for today.{% elif tab == 'past' %}No past bookings yet.{% else %}No upcoming bookings. New bookings from the website will show up here.{% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

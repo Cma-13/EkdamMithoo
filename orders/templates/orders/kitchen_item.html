@@ -5,153 +5,70 @@
 {% endblock %}
 
 {% block heading %}
-  
-{% endblock %}
-
-{% block extra_head %}
-
+  Kitchen Dashboard
 {% endblock %}
 
 {% block main_content %}
-
-  <div class="max-w-4xl mx-auto py-10 px-5">
+  <div class="max-w-4xl mx-auto py-6">
+    <a href="{{ dashboard_url }}" class="inline-block mb-4 py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg">&larr; Back</a>
 
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 text-white px-6 py-4">
+        <h2 class="text-xl font-semibold">Update Order Item Status</h2>
+      </div>
 
-        <div class="bg-slate-900 text-white px-6 py-4">
+      <div class="p-6">
+        <h3 class="text-2xl font-bold text-slate-900">{{ order_item.menu_item.name }}</h3>
 
-            <h2 class="text-xl font-semibold">
-
-                Update Order Item Status
-
-            </h2>
-
+        <div class="mt-5 grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm text-slate-500">Table</p>
+            <p class="font-semibold">{{ order_item.order.table.name }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-slate-500">Quantity</p>
+            <p class="font-semibold">{{ order_item.quantity }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-slate-500">Priority</p>
+            <p class="font-semibold">{{ order_item.get_priority_display }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-slate-500">Estimated Time</p>
+            <p class="font-semibold">
+              {% if order_item.menu_item.est_time %}{{ order_item.menu_item.est_time }} mins{% else %}-{% endif %}
+            </p>
+          </div>
+          <div>
+            <p class="text-sm text-slate-500">Ordered at</p>
+            <p class="font-semibold">{{ order_item.order.created_at|time:"g:i A" }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-slate-500">Status</p>
+            <p class="font-semibold">{{ order_item.get_status_display }}</p>
+          </div>
         </div>
 
-        <div class="p-6">
+        {% if order_item.status == 'p' %}
+          <hr class="my-8">
 
-            <h3 class="text-2xl font-bold text-slate-900">
+          <div class="flex gap-3">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="status" value="ready">
+              <input type="hidden" name="station_code" value="{{ station_code }}">
+              <button class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg">Ready</button>
+            </form>
 
-                {{ order_item.menu_item.name }}
-
-            </h3>
-
-            <div class="mt-5 grid grid-cols-2 gap-4">
-
-                <div>
-
-                    <p class="text-sm text-slate-500">
-
-                        Order
-
-                    </p>
-
-                    <p class="font-semibold">
-
-                        #{{ order_item.order.id }}
-
-                    </p>
-
-                </div>
-
-                <div>
-
-                    <p class="text-sm text-slate-500">
-
-                        Quantity
-
-                    </p>
-
-                    <p class="font-semibold">
-
-                        {{ order_item.quantity }}
-
-                    </p>
-
-                </div>
-
-                <div>
-
-                    <p class="text-sm text-slate-500">
-
-                        Priority
-
-                    </p>
-
-                    <p class="font-semibold">
-
-                        {{ order_item.get_priority_display }}
-
-                    </p>
-
-                </div>
-
-                <div>
-
-                    <p class="text-sm text-slate-500">
-
-                        Estimated Time
-
-                    </p>
-
-                    <p class="font-semibold">
-
-                        {{ order_item.menu_item.est_time }} mins
-
-                    </p>
-
-                </div>
-
-            </div>
-
-            <hr class="my-8">
-
-            <div class="flex gap-3">
-
-                <form method="post">
-
-                    {% csrf_token %}
-
-                    <input type="hidden" name="order_id" value="{{ order_item.id }}">
-
-                    <input type="hidden" name="status" value="ready">
-
-                    <button
-                        class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg">
-
-                        Ready
-
-                    </button>
-
-                </form>
-
-                <form method="post">
-
-                    {% csrf_token %}
-
-                    <input type="hidden" name="order_id" value="{{ order_item.id }}">
-
-                    <input type="hidden" name="status" value="cancel">
-
-                    <button
-                        class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">
-
-                        Cancel
-
-                    </button>
-
-                </form>
-
-            </div>
-
-        </div>
-
+            <form method="post" onsubmit="return confirm('Cancel this item? It will be removed from the bill.')">
+              {% csrf_token %}
+              <input type="hidden" name="status" value="cancel">
+              <input type="hidden" name="station_code" value="{{ station_code }}">
+              <button class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">Cancel</button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
     </div>
-
-</div>
-{% endblock %}
-
-{% block extra_script %}
-
-
+  </div>
 {% endblock %}

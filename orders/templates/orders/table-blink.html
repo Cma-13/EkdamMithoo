@@ -1,0 +1,35 @@
+{% comment %}
+  Shared blinking style + polling script for the table grids.
+  Needs: live_url (JSON endpoint returning {"tables": [ids]})
+{% endcomment %}
+<style>
+  .blinking-effect {
+    background-color: rgb(255, 224, 178);
+    animation: blink 1.6s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { background-color: rgb(255, 224, 178); }
+    50% { background-color: rgb(255, 193, 7); border: 8px solid red; }
+  }
+</style>
+<script>
+  function refreshTableBlink() {
+    fetch("{{ live_url }}")
+      .then((response) => {
+        if (response.redirected || !response.ok) throw new Error(`HTTP ${response.status}`)
+        return response.json()
+      })
+      .then((data) => {
+        document.querySelectorAll('.blinking-effect').forEach((el) => el.classList.remove('blinking-effect'))
+        data.tables.forEach((id) => {
+          const tableIcon = document.getElementById(`table-icon-${id}`)
+          if (tableIcon) tableIcon.classList.add('blinking-effect')
+        })
+      })
+      .catch((error) => console.error('Fetch Error:', error))
+  }
+
+  refreshTableBlink()
+  setInterval(refreshTableBlink, 5000)
+</script>

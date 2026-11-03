@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Bill, Table, Category, MenuItem, Order, OrderItem, OrderHistory, KitchenStation
+from .models import Bill, Reservation, Table, Category, MenuItem, Order, OrderItem, OrderHistory, KitchenStation
 
 @admin.register(Table)
 class TableAdmin(admin.ModelAdmin):
@@ -8,7 +8,17 @@ class TableAdmin(admin.ModelAdmin):
     
 @admin.register(MenuItem)
 class MenuItemAdmin(admin.ModelAdmin):
-    list_display = ["name", "default_priority", "est_time", "station"]
+    list_display = ["name", "category", "price", "is_featured", "default_priority", "est_time", "station"]
+    list_editable = ["price", "is_featured"]
+    list_filter = ["category", "is_featured", "station"]
+    search_fields = ["name"]
+
+
+@admin.register(Reservation)
+class ReservationAdmin(admin.ModelAdmin):
+    list_display = ["name", "phone", "guests", "date", "time", "status", "created_at"]
+    list_filter = ["status", "date"]
+    search_fields = ["name", "phone"]
     
 
 

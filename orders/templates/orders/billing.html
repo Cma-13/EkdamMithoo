@@ -1,5 +1,5 @@
 {% extends 'orders/base.html' %}
-{% load humanize %}
+{% load humanize static %}
 
 {% block title %}
   Billing
@@ -37,49 +37,48 @@
             {% endfor %}
           </ul>
 
-          <!-- Charges + Total -->
-          <dl class="mt-6 pt-4 border-t border-slate-200 space-y-2 text-slate-700">
-            <div class="flex justify-between">
-              <dt>Subtotal</dt>
-              <dd>Rs. {{ amounts.subtotal|floatformat:2|intcomma }}</dd>
-            </div>
-            {% if amounts.service_charge %}
-            <div class="flex justify-between">
-              <dt>Service charge ({{ service_charge_percent }}%)</dt>
-              <dd>Rs. {{ amounts.service_charge|floatformat:2|intcomma }}</dd>
-            </div>
-            {% endif %}
-            {% if amounts.vat %}
-            <div class="flex justify-between">
-              <dt>VAT ({{ vat_percent }}%)</dt>
-              <dd>Rs. {{ amounts.vat|floatformat:2|intcomma }}</dd>
-            </div>
-            {% endif %}
-            <div class="flex justify-between items-center pt-3 border-t border-slate-200">
-              <dt class="text-lg font-semibold text-slate-800">Total</dt>
-              <dd class="text-xl font-bold text-slate-900">Rs. {{ amounts.total|floatformat:2|intcomma }}</dd>
-            </div>
-          </dl>
+          <!-- Total -->
+          <div class="mt-6 pt-4 border-t border-slate-200 flex justify-between items-center">
+            <span class="text-lg font-semibold text-slate-800">Total</span>
+            <span class="text-xl font-bold text-slate-900">Rs. {{ total|floatformat:2|intcomma }}</span>
+          </div>
 
           {% if proceed_billing %}
             <form id="pay-form" class="mt-6" action="{% url 'billing_paid_view_url' table.id %}" method="post"
               data-confirm-title="Confirm payment"
-              data-confirm="Mark {{ table.name }} as paid for Rs. {{ amounts.total|floatformat:2|intcomma }} by Cash? The receipt will be printed."
+              data-confirm="Mark {{ table.name }} as paid for Rs. {{ total|floatformat:2|intcomma }} by Cash? The receipt will be printed."
               data-confirm-button="Mark as Paid"
               data-confirm-variant="success">
               {% csrf_token %}
 
               <fieldset>
                 <legend class="text-sm font-medium text-slate-700 mb-2">Payment method</legend>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {% for value, label in payment_methods %}
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {% for value, label, logo in payment_methods %}
                     <label class="cursor-pointer">
                       <input type="radio" name="payment_method" value="{{ value }}" data-label="{{ label }}"
                         class="peer sr-only" {% if forloop.first %}checked{% endif %}>
-                      <span class="block text-center py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium transition
-                        hover:bg-slate-50 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900
+                      <span class="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-slate-200 bg-white px-2 transition
+                        hover:border-slate-300 peer-checked:border-green-600 peer-checked:bg-green-50
                         peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400">
-                        {{ label }}
+                        {% if logo %}
+                          <!-- If the logo file is missing, the image hides itself and only the name shows -->
+                          {% if logo.dark %}
+                            <span class="inline-flex items-center justify-center h-10 max-w-[90%] rounded-md bg-slate-800 px-2.5">
+                              <img src="{% static logo.path %}" alt="" class="h-6 max-w-full object-contain" onerror="this.parentElement.remove()">
+                            </span>
+                          {% else %}
+                            <img src="{% static logo.path %}" alt="" class="h-9 max-w-[85%] object-contain" onerror="this.remove()">
+                          {% endif %}
+                        {% else %}
+                          <!-- Simple banknote icon for cash -->
+                          <svg class="h-9 w-9 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                            <rect x="2.5" y="6" width="19" height="12" rx="2" />
+                            <circle cx="12" cy="12" r="2.75" />
+                            <path stroke-linecap="round" d="M6 9.5v5M18 9.5v5" />
+                          </svg>
+                        {% endif %}
+                        <span class="text-sm font-medium text-slate-700">{{ label }}</span>
                       </span>
                     </label>
                   {% endfor %}
@@ -111,7 +110,7 @@
       payForm.querySelectorAll('input[name="payment_method"]').forEach((radio) => {
         radio.addEventListener('change', () => {
           payForm.dataset.confirm =
-            `Mark {{ table.name|escapejs }} as paid for Rs. {{ amounts.total|floatformat:2|intcomma }} by ${radio.dataset.label}? The receipt will be printed.`
+            `Mark {{ table.name|escapejs }} as paid for Rs. {{ total|floatformat:2|intcomma }} by ${radio.dataset.label}? The receipt will be printed.`
         })
       })
     }

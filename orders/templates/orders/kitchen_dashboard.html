@@ -8,35 +8,42 @@
   Kitchen Dashboard
 {% endblock %}
 
-{% block extra_head %}
-
-{% endblock %}
-
 {% block main_content %}
-  <div class="stations-box space-y-8">
-    {% for station_name, items in order_items.items %}
-     {% include 'orders/station-card.html'%}
+  <!-- Station filter -->
+  <div class="mb-6 flex flex-wrap gap-2">
+    <a href="{% url 'kitchen_dashboard_view_url' %}"
+      class="px-4 py-2 rounded-lg text-sm font-medium border transition
+        {% if not station_code %}bg-slate-900 text-white border-slate-900{% else %}bg-white text-slate-700 border-slate-300 hover:bg-slate-100{% endif %}">
+      All stations
+    </a>
+    {% for station in stations %}
+      <a href="{% url 'kitchen_dashboard_view_url' %}?station_code={{ station.code|urlencode }}"
+        class="px-4 py-2 rounded-lg text-sm font-medium border transition
+          {% if station_code == station.code %}bg-slate-900 text-white border-slate-900{% else %}bg-white text-slate-700 border-slate-300 hover:bg-slate-100{% endif %}">
+        {{ station.name }}
+      </a>
     {% endfor %}
+  </div>
+
+  <div class="stations-box space-y-8">
+    {% include 'orders/station-cards.html' %}
   </div>
 {% endblock %}
 
 {% block extra_script %}
   <script>
-    const stationBox = document.getElementsByClassName('stations-box')[0]
+    const stationBox = document.querySelector('.stations-box')
+    const liveUrl = "{% url 'kitchen_dashboard_view_live_url' %}?station_code={{ station_code|urlencode }}"
+
+    // Refresh the station cards every 5 seconds
     setInterval(() => {
-      console.log('Hey')
-      fetch("{% url 'kitchen_dashboard_view_live_url' request.session.station_code %}")
+      fetch(liveUrl)
         .then((response) => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`)
-          return response.text() // returns a promise
+          if (response.redirected || !response.ok) throw new Error(`HTTP ${response.status}`)
+          return response.text()
         })
-        .then((data) => {
-          console.log(data)
-          //set blank
-          stationBox.innerHTML = ''
-    
-          // set new data
-          stationBox.innerHTML = data
+        .then((html) => {
+          stationBox.innerHTML = html
         })
         .catch((error) => console.error('Fetch Error:', error))
     }, 5000)

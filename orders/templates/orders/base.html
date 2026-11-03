@@ -32,16 +32,36 @@
                     </h1>
 
                     <div class="mt-1 text-md text-slate-500">
-                        {{ request.user.first_name }} {{ request.user.last_name }}
+                        {{ request.user.get_full_name|default:request.user.username }}
                         <span class="mx-2">•</span>
-                        {{ request.user.get_role_display }}
+                        {% if request.user.role %}{{ request.user.get_role_display }}{% elif request.user.is_superuser %}Owner{% endif %}
                     </div>
                 </div>
 
-                <a href="{% url 'logout_view_url' %}"
-                    class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition">
-                    Logout
-                </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    {% with role=request.user.role url_name=request.resolver_match.url_name %}
+                    {% if role == 'b' %}
+                        <a href="{% url 'tables_for_billing_url' %}"
+                            class="px-4 py-2 rounded-lg font-medium transition {% if url_name == 'tables_for_billing_url' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">Tables</a>
+                        <a href="{% url 'todays_bills_url' %}"
+                            class="px-4 py-2 rounded-lg font-medium transition {% if url_name == 'todays_bills_url' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">Today's Bills</a>
+                    {% elif role == 'o' or request.user.is_superuser %}
+                        <a href="{% url 'owner_dashboard_url' %}"
+                            class="px-4 py-2 rounded-lg font-medium transition {% if url_name == 'owner_dashboard_url' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">Dashboard</a>
+                        <a href="{% url 'owner_bills_url' %}"
+                            class="px-4 py-2 rounded-lg font-medium transition {% if url_name == 'owner_bills_url' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">Bills</a>
+                        {% if request.user.is_staff %}
+                        <a href="{% url 'admin:index' %}"
+                            class="px-4 py-2 rounded-lg font-medium text-slate-700 hover:bg-slate-100 transition">Manage Menu &amp; Staff</a>
+                        {% endif %}
+                    {% endif %}
+                    {% endwith %}
+
+                    <a href="{% url 'logout_view_url' %}"
+                        class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition">
+                        Logout
+                    </a>
+                </div>
 
             </div>
 

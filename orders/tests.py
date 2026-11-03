@@ -111,21 +111,17 @@ class RestaurantFlowTests(TestCase):
         order = Order.objects.get()
         self.assertEqual(order.status, Order.ORDER_STATUS.SERVED)
 
-        # billing: table ready, subtotal excludes the cancelled chiya
-        # 360 + 10% service (36) + 13% VAT on 396 (51.48) = 447.48
+        # billing: table ready, total excludes the cancelled chiya (2 x 180 = 360)
         self.client.force_login(self.billing)
         self.assertEqual(self.client.get(reverse("billing_tables_status_live_url")).json()["tables"], [self.table.id])
         response = self.client.get(reverse("billing_view_url", args=[self.table.id]))
-        self.assertEqual(response.context["amounts"]["subtotal"], Decimal("360"))
-        self.assertEqual(response.context["amounts"]["total"], Decimal("447.48"))
+        self.assertEqual(response.context["total"], 360)
         self.assertTrue(response.context["proceed_billing"])
 
         response = self.client.post(reverse("billing_paid_view_url", args=[self.table.id]), {"payment_method": "esewa"})
         bill = Bill.objects.get()
         self.assertRedirects(response, reverse("bill_detail_url", args=[bill.pk]), fetch_redirect_response=False)
-        self.assertEqual(bill.total, Decimal("447.48"))
-        self.assertEqual(bill.service_charge, Decimal("36.00"))
-        self.assertEqual(bill.vat, Decimal("51.48"))
+        self.assertEqual(bill.total, Decimal("360"))
         self.assertEqual(bill.payment_method, "esewa")
         self.assertEqual(bill.billed_by, self.billing)
 
@@ -134,14 +130,14 @@ class RestaurantFlowTests(TestCase):
         self.assertEqual(order.bill, bill)
         self.assertTrue(OrderHistory.objects.filter(order=order, status=Order.ORDER_STATUS.BILLED).exists())
         printed = mock_print.call_args[0][0]
-        self.assertEqual(printed["total"], Decimal("447.48"))
+        self.assertEqual(printed["total"], Decimal("360"))
         self.assertEqual(printed["bill_number"], bill.bill_number)
         self.assertEqual(len(printed["items"]), 1)  # cancelled chiya not printed
         self.assertEqual(self.table.status, "free")
 
         # bill is cleared: nothing left to pay
         response = self.client.get(reverse("billing_view_url", args=[self.table.id]))
-        self.assertEqual(response.context["amounts"]["total"], 0)
+        self.assertEqual(response.context["total"], 0)
 
         # bill page, reprint and today's bills
         self.assertEqual(self.client.get(reverse("bill_detail_url", args=[bill.pk])).status_code, 200)
@@ -153,7 +149,7 @@ class RestaurantFlowTests(TestCase):
         # owner sees it on the dashboard
         self.client.force_login(self.owner)
         response = self.client.get(reverse("owner_dashboard_url"))
-        self.assertEqual(response.context["revenue"], Decimal("447.48"))
+        self.assertEqual(response.context["revenue"], Decimal("360"))
         self.assertEqual(response.context["bill_count"], 1)
         self.assertEqual(response.context["items_sold"], 2)
         self.assertEqual(response.context["cancelled_items"], 1)
@@ -210,9 +206,3 @@ class RestaurantFlowTests(TestCase):
         self.client.force_login(self.billing)
         response = self.client.get(reverse("owner_dashboard_url"))
         self.assertRedirects(response, reverse("tables_for_billing_url"), fetch_redirect_response=False)
-
-    def test_bill_calculation(self):
-        amounts = Bill.calculate(1000)
-        self.assertEqual(amounts["service_charge"], Decimal("100.00"))
-        self.assertEqual(amounts["vat"], Decimal("143.00"))
-        self.assertEqual(amounts["total"], Decimal("1243.00"))

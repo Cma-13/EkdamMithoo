@@ -69,6 +69,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'orders.context_processors.restaurant',
             ],
         },
     },
@@ -124,6 +125,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Uploaded files (menu photos)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 AUTH_USER_MODEL = "accounts.User"
 
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days in seconds
@@ -131,10 +136,18 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days in seconds
 LOGIN_URL = 'login_view_url'
 
 
-# Restaurant details (used on printed receipts)
-RESTAURANT_NAME = 'ChaiAdda'
+# Restaurant details (website, staff screens and printed receipts)
+RESTAURANT_NAME = 'EkdamMithoo'
+RESTAURANT_NAME_NEPALI = 'एकदम मीठो'
 RESTAURANT_ADDRESS = 'Thamel, Kathmandu'
 RESTAURANT_PHONE = '+977 1234567'
+RESTAURANT_EMAIL = 'hello@ekdammithoo.com'
+
+# Opening hours (24h). Table bookings are taken until 1 hour before closing.
+OPENING_TIME = '11:00'
+CLOSING_TIME = '22:00'
+MAX_GUESTS_PER_BOOKING = 20
+BOOKING_DAYS_AHEAD = 30
 # Leave empty to skip the QR code on receipts
 RECEIPT_FEEDBACK_URL = ''
 

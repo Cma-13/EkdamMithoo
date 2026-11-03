@@ -1,4 +1,5 @@
 {% extends 'orders/base.html' %}
+{% load humanize %}
 
 {% block title %}
   Billing
@@ -31,25 +32,61 @@
                     {{ item.get_status_display }}
                   </span>
                 </div>
-                <span class="font-semibold text-slate-700">Rs. {{ item.item_total }}</span>
+                <span class="font-semibold text-slate-700">Rs. {{ item.item_total|floatformat:2|intcomma }}</span>
               </li>
             {% endfor %}
           </ul>
 
-          <!-- Total -->
-          <div class="mt-6 pt-4 border-t border-slate-200 flex justify-between items-center">
-            <span class="text-lg font-semibold text-slate-800">Total</span>
-            <span class="text-xl font-bold text-slate-900">Rs. {{ total }}</span>
-          </div>
+          <!-- Charges + Total -->
+          <dl class="mt-6 pt-4 border-t border-slate-200 space-y-2 text-slate-700">
+            <div class="flex justify-between">
+              <dt>Subtotal</dt>
+              <dd>Rs. {{ amounts.subtotal|floatformat:2|intcomma }}</dd>
+            </div>
+            {% if amounts.service_charge %}
+            <div class="flex justify-between">
+              <dt>Service charge ({{ service_charge_percent }}%)</dt>
+              <dd>Rs. {{ amounts.service_charge|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+            {% if amounts.vat %}
+            <div class="flex justify-between">
+              <dt>VAT ({{ vat_percent }}%)</dt>
+              <dd>Rs. {{ amounts.vat|floatformat:2|intcomma }}</dd>
+            </div>
+            {% endif %}
+            <div class="flex justify-between items-center pt-3 border-t border-slate-200">
+              <dt class="text-lg font-semibold text-slate-800">Total</dt>
+              <dd class="text-xl font-bold text-slate-900">Rs. {{ amounts.total|floatformat:2|intcomma }}</dd>
+            </div>
+          </dl>
 
           {% if proceed_billing %}
-            <form class="mt-6" action="{% url 'billing_paid_view_url' table.id %}" method="post"
+            <form id="pay-form" class="mt-6" action="{% url 'billing_paid_view_url' table.id %}" method="post"
               data-confirm-title="Confirm payment"
-              data-confirm="Mark {{ table.name }} as paid for Rs. {{ total }}? The receipt will be printed."
+              data-confirm="Mark {{ table.name }} as paid for Rs. {{ amounts.total|floatformat:2|intcomma }} by Cash? The receipt will be printed."
               data-confirm-button="Mark as Paid"
               data-confirm-variant="success">
               {% csrf_token %}
-              <button class="block w-full text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition">
+
+              <fieldset>
+                <legend class="text-sm font-medium text-slate-700 mb-2">Payment method</legend>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {% for value, label in payment_methods %}
+                    <label class="cursor-pointer">
+                      <input type="radio" name="payment_method" value="{{ value }}" data-label="{{ label }}"
+                        class="peer sr-only" {% if forloop.first %}checked{% endif %}>
+                      <span class="block text-center py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium transition
+                        hover:bg-slate-50 peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900
+                        peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400">
+                        {{ label }}
+                      </span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </fieldset>
+
+              <button class="mt-4 block w-full text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition">
                 Mark as Paid
               </button>
             </form>
@@ -64,4 +101,19 @@
       </div>
     </section>
   </div>
+{% endblock %}
+
+{% block extra_script %}
+  <script>
+    // Keep the confirm message in sync with the chosen payment method
+    const payForm = document.getElementById('pay-form')
+    if (payForm) {
+      payForm.querySelectorAll('input[name="payment_method"]').forEach((radio) => {
+        radio.addEventListener('change', () => {
+          payForm.dataset.confirm =
+            `Mark {{ table.name|escapejs }} as paid for Rs. {{ amounts.total|floatformat:2|intcomma }} by ${radio.dataset.label}? The receipt will be printed.`
+        })
+      })
+    }
+  </script>
 {% endblock %}

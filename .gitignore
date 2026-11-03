@@ -17,3 +17,6 @@ db.sqlite3
 .idea/
 .DS_Store
 Thumbs.db
+
+# Uploaded menu photos
+media/

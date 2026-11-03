@@ -54,28 +54,10 @@
           {% endfor %}
         </ul>
 
-        <dl class="mt-6 pt-4 border-t border-slate-200 space-y-2 text-slate-700">
-          <div class="flex justify-between">
-            <dt>Subtotal</dt>
-            <dd>Rs. {{ bill.subtotal|floatformat:2|intcomma }}</dd>
-          </div>
-          {% if bill.service_charge %}
-          <div class="flex justify-between">
-            <dt>Service charge</dt>
-            <dd>Rs. {{ bill.service_charge|floatformat:2|intcomma }}</dd>
-          </div>
-          {% endif %}
-          {% if bill.vat %}
-          <div class="flex justify-between">
-            <dt>VAT</dt>
-            <dd>Rs. {{ bill.vat|floatformat:2|intcomma }}</dd>
-          </div>
-          {% endif %}
-          <div class="flex justify-between items-center pt-3 border-t border-slate-200">
-            <dt class="text-lg font-semibold text-slate-800">Total</dt>
-            <dd class="text-xl font-bold text-slate-900">Rs. {{ bill.total|floatformat:2|intcomma }}</dd>
-          </div>
-        </dl>
+        <div class="mt-6 pt-4 border-t border-slate-200 flex justify-between items-center">
+          <span class="text-lg font-semibold text-slate-800">Total</span>
+          <span class="text-xl font-bold text-slate-900">Rs. {{ bill.total|floatformat:2|intcomma }}</span>
+        </div>
 
         <form class="mt-6" method="post" action="{% url 'bill_reprint_url' bill.pk %}">
           {% csrf_token %}

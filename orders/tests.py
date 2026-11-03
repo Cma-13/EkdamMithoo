@@ -278,3 +278,7 @@ class RestaurantFlowTests(TestCase):
         self.client.post(reverse("reservation_status_url", args=[booking.pk]), {"status": "cancelled"})
         booking.refresh_from_db()
         self.assertEqual(booking.status, Reservation.STATUS.CONFIRMED)
+
+    def test_home_hero_falls_back_without_custom_photo(self):
+        response = self.client.get(reverse("home_view"))
+        self.assertIn(response.context["hero_image"], ["orders/images/website-hero.jpg", "orders/images/thali set.jpg"])

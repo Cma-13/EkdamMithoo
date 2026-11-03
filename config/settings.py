@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-mr)@^-h)!kl_hfby3oimc5*n$q=n=0)x8mcx0x45zg7vho3(gw'
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-mr)@^-h)!kl_hfby3oimc5*n$q=n=0)x8mcx0x45zg7vho3(gw'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -51,7 +55,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'accounts.middlewares.HomeRedirectMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -109,7 +112,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kathmandu'
 
 USE_I18N = True
 
@@ -125,4 +128,16 @@ AUTH_USER_MODEL = "accounts.User"
 
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days in seconds
 
+LOGIN_URL = 'login_view_url'
 
+
+# Restaurant details (used on printed receipts)
+RESTAURANT_NAME = 'ChaiAdda'
+RESTAURANT_ADDRESS = 'Thamel, Kathmandu'
+RESTAURANT_PHONE = '+977 1234567'
+# Leave empty to skip the QR code on receipts
+RECEIPT_FEEDBACK_URL = ''
+
+# Thermal receipt printer (ESC/POS over network)
+RECEIPT_PRINTER_HOST = os.environ.get('RECEIPT_PRINTER_HOST', '127.0.0.1')
+RECEIPT_PRINTER_PORT = int(os.environ.get('RECEIPT_PRINTER_PORT', '9100'))

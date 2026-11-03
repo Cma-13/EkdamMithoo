@@ -5,7 +5,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import User
-from .models import Table, Category, KitchenStation, MenuItem, Order, OrderItem, OrderHistory
+from decimal import Decimal
+
+from .models import Bill, Table, Category, KitchenStation, MenuItem, Order, OrderItem, OrderHistory
 
 
 class RestaurantFlowTests(TestCase):
@@ -36,7 +38,7 @@ class RestaurantFlowTests(TestCase):
             "waiter": reverse("tables_view_url"),
             "kitchen": reverse("kitchen_dashboard_view_url"),
             "billing": reverse("tables_for_billing_url"),
-            "owner": reverse("admin:index"),
+            "owner": reverse("owner_dashboard_url"),
         }
         for username, url in expected.items():
             response = self.client.post(reverse("login_view_url"), {"username": username, "password": "pass12345"})
@@ -109,31 +111,64 @@ class RestaurantFlowTests(TestCase):
         order = Order.objects.get()
         self.assertEqual(order.status, Order.ORDER_STATUS.SERVED)
 
-        # billing: table ready, total excludes the cancelled chiya
+        # billing: table ready, subtotal excludes the cancelled chiya
+        # 360 + 10% service (36) + 13% VAT on 396 (51.48) = 447.48
         self.client.force_login(self.billing)
         self.assertEqual(self.client.get(reverse("billing_tables_status_live_url")).json()["tables"], [self.table.id])
         response = self.client.get(reverse("billing_view_url", args=[self.table.id]))
-        self.assertEqual(response.context["total"], 360)
+        self.assertEqual(response.context["amounts"]["subtotal"], Decimal("360"))
+        self.assertEqual(response.context["amounts"]["total"], Decimal("447.48"))
         self.assertTrue(response.context["proceed_billing"])
 
-        self.client.post(reverse("billing_paid_view_url", args=[self.table.id]))
+        response = self.client.post(reverse("billing_paid_view_url", args=[self.table.id]), {"payment_method": "esewa"})
+        bill = Bill.objects.get()
+        self.assertRedirects(response, reverse("bill_detail_url", args=[bill.pk]), fetch_redirect_response=False)
+        self.assertEqual(bill.total, Decimal("447.48"))
+        self.assertEqual(bill.service_charge, Decimal("36.00"))
+        self.assertEqual(bill.vat, Decimal("51.48"))
+        self.assertEqual(bill.payment_method, "esewa")
+        self.assertEqual(bill.billed_by, self.billing)
+
         order.refresh_from_db()
         self.assertEqual(order.status, Order.ORDER_STATUS.BILLED)
+        self.assertEqual(order.bill, bill)
         self.assertTrue(OrderHistory.objects.filter(order=order, status=Order.ORDER_STATUS.BILLED).exists())
-        self.assertEqual(mock_print.call_args[0][0]["total"], 360)
+        printed = mock_print.call_args[0][0]
+        self.assertEqual(printed["total"], Decimal("447.48"))
+        self.assertEqual(printed["bill_number"], bill.bill_number)
+        self.assertEqual(len(printed["items"]), 1)  # cancelled chiya not printed
         self.assertEqual(self.table.status, "free")
 
         # bill is cleared: nothing left to pay
         response = self.client.get(reverse("billing_view_url", args=[self.table.id]))
-        self.assertEqual(response.context["total"], 0)
+        self.assertEqual(response.context["amounts"]["total"], 0)
+
+        # bill page, reprint and today's bills
+        self.assertEqual(self.client.get(reverse("bill_detail_url", args=[bill.pk])).status_code, 200)
+        self.client.post(reverse("bill_reprint_url", args=[bill.pk]))
+        self.assertEqual(mock_print.call_count, 2)
+        response = self.client.get(reverse("todays_bills_url"))
+        self.assertContains(response, bill.bill_number)
+
+        # owner sees it on the dashboard
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("owner_dashboard_url"))
+        self.assertEqual(response.context["revenue"], Decimal("447.48"))
+        self.assertEqual(response.context["bill_count"], 1)
+        self.assertEqual(response.context["items_sold"], 2)
+        self.assertEqual(response.context["cancelled_items"], 1)
+        self.assertEqual(list(response.context["top_items"])[0]["menu_item__name"], "Buff Momo")
+        esewa = next(m for m in response.context["payment_split"] if m["label"] == "eSewa")
+        self.assertEqual(esewa["percent"], 100)
 
     def test_cannot_pay_before_everything_is_served(self):
         self.place_order([{"item_id": self.momo.id, "quantity": 1}])
         self.client.force_login(self.billing)
         response = self.client.get(reverse("billing_view_url", args=[self.table.id]))
         self.assertFalse(response.context["proceed_billing"])
-        self.client.post(reverse("billing_paid_view_url", args=[self.table.id]))
+        self.client.post(reverse("billing_paid_view_url", args=[self.table.id]), {"payment_method": "cash"})
         self.assertNotEqual(Order.objects.get().status, Order.ORDER_STATUS.BILLED)
+        self.assertEqual(Bill.objects.count(), 0)
 
     def test_paid_view_rejects_get(self):
         self.client.force_login(self.billing)
@@ -152,3 +187,32 @@ class RestaurantFlowTests(TestCase):
         self.assertEqual(self.client.get(reverse("kitchen_item_view_url", args=[item.id])).status_code, 200)
         self.client.force_login(self.billing)
         self.assertEqual(self.client.get(reverse("tables_for_billing_url")).status_code, 200)
+
+    # owner -----------------------------------------------------------------
+    def test_payment_method_is_required(self):
+        self.place_order([{"item_id": self.momo.id, "quantity": 1}])
+        OrderItem.objects.update(status=OrderItem.ITEM_STATUS.SERVED)
+        self.client.force_login(self.billing)
+        self.client.post(reverse("billing_paid_view_url", args=[self.table.id]), {"payment_method": "bitcoin"})
+        self.assertEqual(Bill.objects.count(), 0)
+
+    def test_owner_pages_and_access(self):
+        superuser = User.objects.create_superuser("boss", password="pass12345")
+        for user in [self.owner, superuser]:
+            self.client.force_login(user)
+            for range_key in ["today", "7d", "30d", "junk"]:
+                response = self.client.get(reverse("owner_dashboard_url") + f"?range={range_key}")
+                self.assertEqual(response.status_code, 200)
+            response = self.client.get(reverse("owner_bills_url") + "?from=2026-13-45&to=bad&method=cash")
+            self.assertEqual(response.status_code, 200)
+
+        # other roles cannot open owner pages
+        self.client.force_login(self.billing)
+        response = self.client.get(reverse("owner_dashboard_url"))
+        self.assertRedirects(response, reverse("tables_for_billing_url"), fetch_redirect_response=False)
+
+    def test_bill_calculation(self):
+        amounts = Bill.calculate(1000)
+        self.assertEqual(amounts["service_charge"], Decimal("100.00"))
+        self.assertEqual(amounts["vat"], Decimal("143.00"))
+        self.assertEqual(amounts["total"], Decimal("1243.00"))

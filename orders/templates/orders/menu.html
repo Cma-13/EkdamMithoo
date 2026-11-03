@@ -78,10 +78,14 @@ Waiter Dashboard
                         Total: Rs. 0
                     </h3>
                     <input id="order-items" type="hidden" name="order-items" value="">
-                    <button id="place-order-btn"
-                        class="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700">
+                    <button id="place-order-btn" disabled
+                        class="w-full mt-4 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700
+                               disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed">
                         Place Order
                     </button>
+                    <p id="place-order-hint" class="mt-2 text-sm text-slate-500 text-center">
+                        Add at least one item to place the order.
+                    </p>
                 </form>
 
                 <!-- Previous Orders -->
@@ -211,6 +215,11 @@ Waiter Dashboard
             });
 
             totalPriceDisplay.innerText = `Total: Rs. ${total}`;
+
+            // Only allow placing the order when the cart has items
+            const isEmpty = Object.keys(cart).length === 0;
+            document.getElementById("place-order-btn").disabled = isEmpty;
+            document.getElementById("place-order-hint").classList.toggle("hidden", !isEmpty);
         }
 
         function increaseQuantity(id) {
@@ -234,7 +243,6 @@ Waiter Dashboard
 
                 if (Object.keys(cart).length === 0) {
                     event.preventDefault();
-                    alert("Please add at least one item before placing the order.");
                     return;
                 }
 

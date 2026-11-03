@@ -25,4 +25,6 @@ urlpatterns = [
     # Owner
     path("owner/dashboard/", views.owner_dashboard_view, name="owner_dashboard_url"),
     path("owner/bills/", views.owner_bills_view, name="owner_bills_url"),
+    path("owner/reservations/", views.owner_reservations_view, name="owner_reservations_url"),
+    path("owner/reservations/<int:pk>/status/", views.reservation_status_view, name="reservation_status_url"),
 ]

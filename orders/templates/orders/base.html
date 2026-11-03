@@ -4,20 +4,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        {% block title %}
-        Default title
-        {% endblock %}
-    </title>
+    <title>{% block title %}{% endblock %} | {{ restaurant.name }}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@400;500;600;700&family=Rozha+One&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Brand colours for the staff screens: the grey "slate" scale is
+        // replaced with warm tones, so every page matches the website.
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            50: '#FBF7F0', 100: '#F7EFE2', 200: '#E8DCC8', 300: '#D8C7AB', 400: '#A8957A',
+                            500: '#7D6A55', 600: '#604E3E', 700: '#4A3A2D', 800: '#362920', 900: '#2B1A12',
+                        },
+                        sindoor: '#9E1B1B',
+                        'sindoor-dark': '#7E1414',
+                        brass: '#B8862F',
+                    },
+                    fontFamily: {
+                        sans: ['Mukta', 'sans-serif'],
+                        display: ['"Rozha One"', 'serif'],
+                    },
+                }
+            }
+        }
+    </script>
 
     {% block extra_head %}
     {% endblock %}
 
 </head>
 
-<body class="bg-slate-100 min-h-screen">
+<body class="bg-slate-100 text-slate-900 min-h-screen">
 
     <!-- Header -->
     <header class="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
@@ -26,14 +49,13 @@
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
                 <div>
-                    <h1 class="text-3xl font-bold text-slate-900">
+                    <p class="font-display text-xl leading-none text-sindoor">{{ restaurant.name }}</p>
+                    <h1 class="mt-1 text-2xl md:text-3xl font-bold text-slate-900">
                        {% block heading %}
                        {% endblock %}
                     </h1>
-
-                    <div class="mt-1 text-md text-slate-500">
-                        {{ request.user.get_full_name|default:request.user.username }}
-                        <span class="mx-2">•</span>
+                    <div class="text-slate-500">
+                        {{ request.user.get_full_name|default:request.user.username }},
                         {% if request.user.role %}{{ request.user.get_role_display }}{% elif request.user.is_superuser %}Owner{% endif %}
                     </div>
                 </div>
@@ -50,6 +72,8 @@
                             class="px-4 py-2 rounded-lg font-medium transition {% if url_name == 'owner_dashboard_url' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">Dashboard</a>
                         <a href="{% url 'owner_bills_url' %}"
                             class="px-4 py-2 rounded-lg font-medium transition {% if url_name == 'owner_bills_url' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">Bills</a>
+                        <a href="{% url 'owner_reservations_url' %}"
+                            class="px-4 py-2 rounded-lg font-medium transition {% if url_name == 'owner_reservations_url' %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">Reservations</a>
                         {% if request.user.is_staff %}
                         <a href="{% url 'admin:index' %}"
                             class="px-4 py-2 rounded-lg font-medium text-slate-700 hover:bg-slate-100 transition">Manage Menu &amp; Staff</a>
@@ -58,7 +82,7 @@
                     {% endwith %}
 
                     <a href="{% url 'logout_view_url' %}"
-                        class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition">
+                        class="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium transition">
                         Logout
                     </a>
                 </div>

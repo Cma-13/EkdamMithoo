@@ -1,0 +1,38 @@
+{% load humanize %}
+{% comment %}
+  Shared list of bills. Needs: bills
+{% endcomment %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  {% if bills %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-left">
+          <tr>
+            <th class="px-4 py-3 font-medium">Bill No</th>
+            <th class="px-4 py-3 font-medium">Time</th>
+            <th class="px-4 py-3 font-medium">Table</th>
+            <th class="px-4 py-3 font-medium">Payment</th>
+            <th class="px-4 py-3 font-medium">Billed by</th>
+            <th class="px-4 py-3 font-medium text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for bill in bills %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-3">
+                <a href="{% url 'bill_detail_url' bill.pk %}" class="font-medium text-blue-700 hover:underline whitespace-nowrap">{{ bill.bill_number }}</a>
+              </td>
+              <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ bill.created_at|date:"M j, g:i A" }}</td>
+              <td class="px-4 py-3 text-slate-800 whitespace-nowrap">{{ bill.table.name }}</td>
+              <td class="px-4 py-3 text-slate-600">{{ bill.get_payment_method_display }}</td>
+              <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{% if bill.billed_by %}{{ bill.billed_by.get_full_name|default:bill.billed_by.username }}{% else %}-{% endif %}</td>
+              <td class="px-4 py-3 text-right font-semibold text-slate-800 whitespace-nowrap">Rs. {{ bill.total|floatformat:2|intcomma }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="px-6 py-12 text-center text-slate-500">No bills found.</p>
+  {% endif %}
+</div>

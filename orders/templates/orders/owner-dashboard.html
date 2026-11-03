@@ -1,0 +1,139 @@
+{% extends 'orders/base.html' %}
+{% load humanize %}
+
+{% block title %}
+  Owner Dashboard
+{% endblock %}
+
+{% block heading %}
+  Owner Dashboard
+{% endblock %}
+
+{% block main_content %}
+  <div class="space-y-6">
+
+    <!-- Range picker + live status -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="inline-flex rounded-lg border border-slate-300 bg-white p-1">
+        {% for key, label in ranges %}
+          <a href="?range={{ key }}"
+            class="px-4 py-1.5 rounded-md text-sm font-medium transition
+              {% if key == range_key %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">
+            {{ label }}
+          </a>
+        {% endfor %}
+      </div>
+
+      <div class="flex flex-wrap gap-2 text-sm">
+        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700">
+          <span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span>
+          {{ active_tables }} / {{ total_tables }} tables occupied
+        </span>
+        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700">
+          <span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1"></span>
+          {{ in_kitchen }} item{{ in_kitchen|pluralize }} in the kitchen
+        </span>
+      </div>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <p class="text-sm text-slate-500">Revenue</p>
+        <p class="mt-1 text-2xl font-bold text-slate-900">Rs. {{ revenue|floatformat:0|intcomma }}</p>
+        <p class="mt-1 text-xs text-slate-400">{{ range_label }}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <p class="text-sm text-slate-500">Bills</p>
+        <p class="mt-1 text-2xl font-bold text-slate-900">{{ bill_count }}</p>
+        <p class="mt-1 text-xs text-slate-400">Avg. Rs. {{ average_bill|floatformat:0|intcomma }} per bill</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <p class="text-sm text-slate-500">Items sold</p>
+        <p class="mt-1 text-2xl font-bold text-slate-900">{{ items_sold }}</p>
+        <p class="mt-1 text-xs text-slate-400">Served and paid</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <p class="text-sm text-slate-500">Cancelled items</p>
+        <p class="mt-1 text-2xl font-bold {% if cancelled_items %}text-red-600{% else %}text-slate-900{% endif %}">{{ cancelled_items }}</p>
+        <p class="mt-1 text-xs text-slate-400">Cancelled by the kitchen</p>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+      <!-- Daily revenue chart -->
+      <section class="lg:col-span-2 min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h2 class="font-semibold text-slate-800">Daily revenue</h2>
+        <p class="text-xs text-slate-400 mb-4">Last {{ daily|length }} days</p>
+
+        <div class="flex items-end gap-1 h-48" role="img" aria-label="Daily revenue bar chart">
+          {% for d in daily %}
+            <div class="group relative flex-1 h-full flex flex-col justify-end">
+              <div class="w-full rounded-t {% if d.total %}bg-slate-800 group-hover:bg-blue-600{% else %}bg-slate-100{% endif %} transition"
+                style="height: {% if d.total %}{{ d.percent }}%{% else %}2px{% endif %}"></div>
+              <!-- Tooltip -->
+              <div class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block whitespace-nowrap rounded bg-slate-900 px-2 py-1 text-xs text-white z-10">
+                {{ d.day|date:"M j" }}: Rs. {{ d.total|floatformat:0|intcomma }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="mt-2 flex justify-between text-xs text-slate-400">
+          <span>{{ daily.0.day|date:"M j" }}</span>
+          <span>Today</span>
+        </div>
+      </section>
+
+      <!-- Payment split -->
+      <section class="min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h2 class="font-semibold text-slate-800">Payment methods</h2>
+        <p class="text-xs text-slate-400 mb-4">{{ range_label }}</p>
+        <ul class="space-y-4">
+          {% for method in payment_split %}
+            <li>
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-700">{{ method.label }}</span>
+                <span class="font-medium text-slate-800">Rs. {{ method.amount|floatformat:0|intcomma }}</span>
+              </div>
+              <div class="mt-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div class="h-full bg-slate-800 rounded-full" style="width: {{ method.percent }}%"></div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-6">
+      <!-- Top items -->
+      <section class="min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <h2 class="font-semibold text-slate-800">Top selling items</h2>
+        <p class="text-xs text-slate-400 mb-4">{{ range_label }}</p>
+        {% if top_items %}
+          <ol class="space-y-3">
+            {% for item in top_items %}
+              <li class="flex items-center justify-between gap-3">
+                <span class="flex items-center gap-3">
+                  <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center">{{ forloop.counter }}</span>
+                  <span class="text-slate-800">{{ item.menu_item__name }}</span>
+                </span>
+                <span class="text-sm text-slate-500 whitespace-nowrap">{{ item.qty }} sold · Rs. {{ item.revenue|intcomma }}</span>
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="text-sm text-slate-500">No sales in this period yet.</p>
+        {% endif %}
+      </section>
+
+      <!-- Recent bills -->
+      <section class="lg:col-span-2 min-w-0">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold text-slate-800">Recent bills</h2>
+          <a href="{% url 'owner_bills_url' %}" class="text-sm text-blue-700 hover:underline">View all &rarr;</a>
+        </div>
+        {% include 'orders/bills-table.html' with bills=recent_bills %}
+      </section>
+    </div>
+  </div>
+{% endblock %}

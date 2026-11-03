@@ -44,7 +44,10 @@
 
           {% if proceed_billing %}
             <form class="mt-6" action="{% url 'billing_paid_view_url' table.id %}" method="post"
-              onsubmit="return confirm('Mark {{ table.name }} as paid (Rs. {{ total }})?')">
+              data-confirm-title="Confirm payment"
+              data-confirm="Mark {{ table.name }} as paid for Rs. {{ total }}? The receipt will be printed."
+              data-confirm-button="Mark as Paid"
+              data-confirm-variant="success">
               {% csrf_token %}
               <button class="block w-full text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition">
                 Mark as Paid

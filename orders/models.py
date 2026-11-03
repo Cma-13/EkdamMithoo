@@ -7,6 +7,22 @@ class Table(models.Model):
     
     def __str__(self):
         return self.name
+
+    @property
+    def status(self):
+        """'occupied' if the table has an active (not billed/cancelled) order,
+        'reserved' if marked reserved, otherwise 'free'."""
+        has_active_order = self.orders.exclude(
+            status__in=[Order.ORDER_STATUS.BILLED, Order.ORDER_STATUS.CANCELLED]
+        ).exists()
+        if has_active_order:
+            return 'occupied'
+        if self.is_reserved:
+            return 'reserved'
+        return 'free'
+
+    def get_status_display(self):
+        return self.status.capitalize()
     
 class Category(models.Model):
     name = models.CharField(max_length=150)
@@ -50,6 +66,7 @@ class Order(models.Model):
         PARTIALLY_SERVED = 'ps', 'Partially Served'
         SERVED = 's', 'Served'
         BILLED = 'b', 'Billed'
+        CANCELLED = 'c', 'Cancelled'
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     table = models.ForeignKey(Table, on_delete=models.PROTECT, related_name='orders')
@@ -64,7 +81,7 @@ class OrderItem(models.Model):
         PREPARING = 'p', 'Preparing'
         READY = 'r', 'Ready'
         SERVED = 's', 'Served'
-  
+        CANCELLED = 'c', 'Cancelled'
     
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name='items')
     menu_item = models.ForeignKey(MenuItem, on_delete=models.PROTECT, related_name='order_items')
@@ -72,6 +89,7 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     status = models.CharField(choices=ITEM_STATUS, max_length=2, default=ITEM_STATUS.PREPARING)
     priority = models.CharField(choices= MenuItem.PRIORITY_CHOICES, default=MenuItem.PRIORITY_CHOICES.MEDIUM, max_length=2)
+    
 
     
     def __str__(self):

@@ -5,9 +5,12 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import User
+from datetime import timedelta
 from decimal import Decimal
 
-from .models import Bill, Table, Category, KitchenStation, MenuItem, Order, OrderItem, OrderHistory
+from django.utils import timezone
+
+from .models import Bill, Reservation, Table, Category, KitchenStation, MenuItem, Order, OrderItem, OrderHistory
 
 
 class RestaurantFlowTests(TestCase):
@@ -206,3 +209,72 @@ class RestaurantFlowTests(TestCase):
         self.client.force_login(self.billing)
         response = self.client.get(reverse("owner_dashboard_url"))
         self.assertRedirects(response, reverse("tables_for_billing_url"), fetch_redirect_response=False)
+
+    # website -----------------------------------------------------------------
+    def test_home_shows_menu_from_database(self):
+        self.momo.description = "Hand-folded buff momo"
+        self.momo.is_featured = True
+        self.momo.save()
+        response = self.client.get(reverse("home_view"))
+        self.assertContains(response, "Buff Momo")
+        self.assertContains(response, "Rs. 180")
+        self.assertContains(response, "Masala Chiya")
+        self.assertEqual(list(response.context["featured_items"]), [self.momo])
+
+    def booking_data(self, **changes):
+        data = {
+            "name": "Sita Rai",
+            "phone": "9812345678",
+            "guests": 4,
+            "date": (timezone.localdate() + timedelta(days=1)).isoformat(),
+            "time": "19:00",
+            "note": "Birthday",
+        }
+        data.update(changes)
+        return data
+
+    def test_booking_from_website(self):
+        response = self.client.post(reverse("reservation_create_url"), self.booking_data(phone="+977 981-234-5678"))
+        self.assertRedirects(response, reverse("home_view") + "?booked=1#book", fetch_redirect_response=False)
+        booking = Reservation.objects.get()
+        self.assertEqual(booking.phone, "9812345678")
+        self.assertEqual(booking.status, Reservation.STATUS.PENDING)
+
+    def test_booking_validation(self):
+        yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
+        far_away = (timezone.localdate() + timedelta(days=90)).isoformat()
+        bad_cases = [
+            {"date": yesterday},
+            {"date": far_away},
+            {"time": "23:30"},     # after closing
+            {"time": "21:30"},     # later than 1 hour before closing
+            {"guests": 0},
+            {"guests": 50},
+            {"phone": "12345"},
+            {"name": " "},
+        ]
+        for changes in bad_cases:
+            response = self.client.post(reverse("reservation_create_url"), self.booking_data(**changes))
+            self.assertEqual(response.status_code, 400, changes)
+        self.assertEqual(Reservation.objects.count(), 0)
+
+    def test_owner_manages_bookings(self):
+        booking = Reservation.objects.create(**{
+            **self.booking_data(), "date": timezone.localdate(), "time": "20:00",
+        })
+        self.client.force_login(self.owner)
+        for tab in ["upcoming", "today", "past"]:
+            self.assertEqual(self.client.get(reverse("owner_reservations_url") + f"?tab={tab}").status_code, 200)
+        response = self.client.get(reverse("owner_dashboard_url"))
+        self.assertEqual(response.context["todays_bookings"], 1)
+        self.assertEqual(response.context["pending_bookings"], 1)
+
+        self.client.post(reverse("reservation_status_url", args=[booking.pk]), {"status": "confirmed"})
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Reservation.STATUS.CONFIRMED)
+
+        # staff from other roles cannot change bookings
+        self.client.force_login(self.waiter)
+        self.client.post(reverse("reservation_status_url", args=[booking.pk]), {"status": "cancelled"})
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Reservation.STATUS.CONFIRMED)

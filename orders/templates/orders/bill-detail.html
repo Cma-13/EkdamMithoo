@@ -1,0 +1,89 @@
+{% extends 'orders/base.html' %}
+{% load humanize %}
+
+{% block title %}
+  Bill {{ bill.bill_number }}
+{% endblock %}
+
+{% block heading %}
+  {% if request.user.role == 'b' %}Billing Dashboard{% else %}Owner Dashboard{% endif %}
+{% endblock %}
+
+{% block main_content %}
+  <div class="max-w-2xl mx-auto">
+    <div class="mb-4 flex flex-wrap gap-2">
+      {% if request.user.role == 'b' %}
+        <a href="{% url 'tables_for_billing_url' %}" class="py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg">&larr; Back to tables</a>
+      {% else %}
+        <a href="{% url 'owner_bills_url' %}" class="py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg">&larr; Back to bills</a>
+      {% endif %}
+    </div>
+
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-800">Bill {{ bill.bill_number }}</h2>
+          <p class="text-sm text-slate-500">{{ bill.created_at|date:"M j, Y, g:i A" }}</p>
+        </div>
+        <span class="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700">Paid · {{ bill.get_payment_method_display }}</span>
+      </div>
+
+      <div class="p-6">
+        <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+          <div>
+            <p class="text-slate-500">Table</p>
+            <p class="font-semibold text-slate-800">{{ bill.table.name }}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Billed by</p>
+            <p class="font-semibold text-slate-800">
+              {% if bill.billed_by %}{{ bill.billed_by.get_full_name|default:bill.billed_by.username }}{% else %}-{% endif %}
+            </p>
+          </div>
+        </div>
+
+        <ul class="space-y-2">
+          {% for item in items %}
+            <li class="flex items-center justify-between py-2 border-b border-slate-100 last:border-0 {% if item.status == 'c' %}text-slate-400{% endif %}">
+              <span class="{% if item.status == 'c' %}line-through{% else %}text-slate-800{% endif %}">
+                {{ item }}
+                {% if item.status == 'c' %}<span class="ml-1 text-xs no-underline">(cancelled)</span>{% endif %}
+              </span>
+              <span class="{% if item.status == 'c' %}line-through{% else %}font-medium text-slate-700{% endif %}">Rs. {{ item.item_total|floatformat:2|intcomma }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+
+        <dl class="mt-6 pt-4 border-t border-slate-200 space-y-2 text-slate-700">
+          <div class="flex justify-between">
+            <dt>Subtotal</dt>
+            <dd>Rs. {{ bill.subtotal|floatformat:2|intcomma }}</dd>
+          </div>
+          {% if bill.service_charge %}
+          <div class="flex justify-between">
+            <dt>Service charge</dt>
+            <dd>Rs. {{ bill.service_charge|floatformat:2|intcomma }}</dd>
+          </div>
+          {% endif %}
+          {% if bill.vat %}
+          <div class="flex justify-between">
+            <dt>VAT</dt>
+            <dd>Rs. {{ bill.vat|floatformat:2|intcomma }}</dd>
+          </div>
+          {% endif %}
+          <div class="flex justify-between items-center pt-3 border-t border-slate-200">
+            <dt class="text-lg font-semibold text-slate-800">Total</dt>
+            <dd class="text-xl font-bold text-slate-900">Rs. {{ bill.total|floatformat:2|intcomma }}</dd>
+          </div>
+        </dl>
+
+        <form class="mt-6" method="post" action="{% url 'bill_reprint_url' bill.pk %}">
+          {% csrf_token %}
+          <button class="w-full py-3 rounded-lg border border-slate-300 bg-white text-slate-700 font-semibold hover:bg-slate-100 transition">
+            Reprint Receipt
+          </button>
+        </form>
+      </div>
+    </section>
+  </div>
+{% endblock %}

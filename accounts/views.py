@@ -18,7 +18,7 @@ def login_view(request):
 
         user = authenticate(request, username=username, password=password)
         if user is None:
-            messages.error(request, 'Invalid credentials.')
+            messages.error(request, 'Wrong username or password.')
             return redirect('login_view_url')
 
         home_url = get_home_url(user)

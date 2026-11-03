@@ -5,18 +5,27 @@ from escpos.printer import Network
 LINE_WIDTH = 32
 
 
+def two_columns(left, right, fill=" "):
+    """Left text and right text on one receipt line."""
+    padding = max(1, LINE_WIDTH - len(left) - len(right))
+    return f"{left}{fill * padding}{right}\n"
+
+
 def print_restaurant_receipt(order_data):
     """
     Prints a formatted receipt on a network ESC/POS thermal printer.
 
-    order_data example:
+    order_data example (see build_receipt_data in views.py):
     {
+        "bill_number": "B-00012",
         "table_name": "Table 1",
-        "total": 540,
+        "date": "2026-11-03 01:15 PM",
+        "payment_method": "Cash",
         "items": [
             {"name": "Momo (Buff)", "price": 360, "qty": 2},
             {"name": "Masala Chiya", "price": 180, "qty": 3},
         ],
+        "subtotal": 540, "service_charge": 54, "vat": 77.22, "total": 671.22,
     }
     Returns True if printed, False if the printer was not reachable.
     """
@@ -39,6 +48,11 @@ def print_restaurant_receipt(order_data):
         p.set(align="center", bold=False, font="a", normal_textsize=True)
         p.text(f"{settings.RESTAURANT_ADDRESS}\n")
         p.text(f"Tel: {settings.RESTAURANT_PHONE}\n")
+        p.text("-" * LINE_WIDTH + "\n")
+
+        p.set(align="left", bold=False, normal_textsize=True)
+        p.text(f"Bill No: {order_data['bill_number']}\n")
+        p.text(f"Date: {order_data['date']}\n")
         p.text(f"Table: {order_data['table_name']}\n")
         p.text("-" * LINE_WIDTH + "\n")
 
@@ -49,15 +63,27 @@ def print_restaurant_receipt(order_data):
 
         for item in order_data["items"]:
             line = f"{item.get('qty', 1)}x {item['name']}"
-            price_text = f"Rs. {item['price']:.2f}"
-            padding = max(1, LINE_WIDTH - len(line) - len(price_text))
-            p.text(f"{line}{'.' * padding}{price_text}\n")
+            p.text(two_columns(line, f"Rs. {item['price']:.2f}", fill="."))
 
         p.text("-" * LINE_WIDTH + "\n")
 
+        # Charges
+        p.text(two_columns("Subtotal", f"Rs. {order_data['subtotal']:.2f}"))
+        if order_data["service_charge"]:
+            p.text(two_columns(
+                f"Service charge ({settings.SERVICE_CHARGE_PERCENT}%)", f"Rs. {order_data['service_charge']:.2f}"
+            ))
+        if order_data["vat"]:
+            p.text(two_columns(f"VAT ({settings.VAT_PERCENT}%)", f"Rs. {order_data['vat']:.2f}"))
+        p.text("-" * LINE_WIDTH + "\n")
+
         # Total
-        p.set(align="right", bold=True, double_width=True, double_height=True)
+        # Double height only: double width would not fit larger totals on 32 columns
+        p.set(align="right", bold=True, double_height=True)
         p.text(f"TOTAL: Rs. {order_data['total']:.2f}\n")
+
+        p.set(align="left", bold=False, normal_textsize=True)
+        p.text(f"Paid by: {order_data['payment_method']}\n")
 
         # Footer
         p.set(align="center", bold=False, normal_textsize=True)

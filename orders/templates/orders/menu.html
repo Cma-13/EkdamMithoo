@@ -36,8 +36,8 @@ Waiter Dashboard
 
             <!-- Menu -->
             <div>
-                <a class="py-2 px-3 bg-green-600 text-gray-50 rounded-lg" href="{% url 'tables_view_url' %}">Back</a>
-                <h1 class="text-2xl font-bold mb-4">Menu</h1>
+                <a class="inline-block py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg" href="{% url 'tables_view_url' %}">&larr; Back</a>
+                <h1 class="text-2xl font-bold my-4">Menu · {{ table.name }}</h1>
 
                 {% for category in categories %}
                 <div class="bg-white rounded-xl shadow p-4 mb-4">
@@ -67,7 +67,9 @@ Waiter Dashboard
                     Current Order
                 </h2>
 
-                <div id="selected-menu-items" class="space-y-2"></div>
+                <div id="selected-menu-items" class="space-y-2">
+                    <p class="text-sm text-gray-500">Tap a menu item to add it.</p>
+                </div>
 
 
                 <form class="border-t mt-4 pt-4" method="post">
@@ -102,7 +104,8 @@ Waiter Dashboard
                             <ul class="list-disc list-inside text-gray-700 space-y-1">
                                 {% for item in order.items.all %}
                                 <li>{{ item }} 
-                                    <span class="px-3 py-1 bg-green-300 text-sm">{{ item.get_status_display }}</span>
+                                    <span class="px-3 py-1 text-sm rounded-full
+                                        {% if item.status == 's' %}bg-green-200 text-green-800{% elif item.status == 'r' %}bg-lime-200 text-lime-800{% elif item.status == 'c' %}bg-red-100 text-red-700 line-through{% else %}bg-amber-100 text-amber-800{% endif %}">{{ item.get_status_display }}</span>
                                     
                                     {% if item.status == 'r' %}
                                     <span class="inline-block h-3 w-3 rounded-full blinking"></span>
@@ -165,6 +168,10 @@ Waiter Dashboard
 
             selectedItemsContainer.innerHTML = "";
 
+            if (Object.keys(cart).length === 0) {
+                selectedItemsContainer.innerHTML = '<p class="text-sm text-gray-500">Tap a menu item to add it.</p>';
+            }
+
             let total = 0;
 
             Object.values(cart).forEach(item => {
@@ -223,7 +230,13 @@ Waiter Dashboard
         }
 
         document.getElementById("place-order-btn")
-            .addEventListener("click", () => {
+            .addEventListener("click", (event) => {
+
+                if (Object.keys(cart).length === 0) {
+                    event.preventDefault();
+                    alert("Please add at least one item before placing the order.");
+                    return;
+                }
 
                 const orderData = {
                     table_id: "{{ table_id }}",

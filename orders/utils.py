@@ -25,7 +25,7 @@ def print_restaurant_receipt(order_data):
             {"name": "Momo (Buff)", "price": 360, "qty": 2},
             {"name": "Masala Chiya", "price": 180, "qty": 3},
         ],
-        "subtotal": 540, "service_charge": 54, "vat": 77.22, "total": 671.22,
+        "total": 540,
     }
     Returns True if printed, False if the printer was not reachable.
     """
@@ -65,16 +65,6 @@ def print_restaurant_receipt(order_data):
             line = f"{item.get('qty', 1)}x {item['name']}"
             p.text(two_columns(line, f"Rs. {item['price']:.2f}", fill="."))
 
-        p.text("-" * LINE_WIDTH + "\n")
-
-        # Charges
-        p.text(two_columns("Subtotal", f"Rs. {order_data['subtotal']:.2f}"))
-        if order_data["service_charge"]:
-            p.text(two_columns(
-                f"Service charge ({settings.SERVICE_CHARGE_PERCENT}%)", f"Rs. {order_data['service_charge']:.2f}"
-            ))
-        if order_data["vat"]:
-            p.text(two_columns(f"VAT ({settings.VAT_PERCENT}%)", f"Rs. {order_data['vat']:.2f}"))
         p.text("-" * LINE_WIDTH + "\n")
 
         # Total

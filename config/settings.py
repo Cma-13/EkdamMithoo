@@ -135,10 +135,6 @@ LOGIN_URL = 'login_view_url'
 RESTAURANT_NAME = 'ChaiAdda'
 RESTAURANT_ADDRESS = 'Thamel, Kathmandu'
 RESTAURANT_PHONE = '+977 1234567'
-# Billing charges in percent (set to 0 to turn off)
-SERVICE_CHARGE_PERCENT = 10
-VAT_PERCENT = 13
-
 # Leave empty to skip the QR code on receipts
 RECEIPT_FEEDBACK_URL = ''
 

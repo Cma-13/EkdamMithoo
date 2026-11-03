@@ -58,17 +58,19 @@
                     <label class="cursor-pointer">
                       <input type="radio" name="payment_method" value="{{ value }}" data-label="{{ label }}"
                         class="peer sr-only" {% if forloop.first %}checked{% endif %}>
-                      <span class="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-slate-200 bg-white px-2 transition
+                      <span class="pay-tile relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-slate-200 bg-white px-2 transition
                         hover:border-slate-300 peer-checked:border-green-600 peer-checked:bg-green-50
                         peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400">
                         {% if logo %}
-                          <!-- If the logo file is missing, the image hides itself and only the name shows -->
+                          <!-- Logo only. If the file is missing, it removes itself and the name is shown instead -->
                           {% if logo.dark %}
-                            <span class="inline-flex items-center justify-center h-10 max-w-[90%] rounded-md bg-slate-800 px-2.5">
-                              <img src="{% static logo.path %}" alt="" class="h-6 max-w-full object-contain" onerror="this.parentElement.remove()">
+                            <span class="inline-flex items-center justify-center h-12 max-w-[92%] rounded-md bg-slate-800 px-3">
+                              <img src="{% static logo.path %}" alt="" class="h-7 max-w-full object-contain"
+                                onerror="this.closest('.pay-tile').querySelector('.pay-label').classList.remove('sr-only'); this.parentElement.remove()">
                             </span>
                           {% else %}
-                            <img src="{% static logo.path %}" alt="" class="h-9 max-w-[85%] object-contain" onerror="this.remove()">
+                            <img src="{% static logo.path %}" alt="" class="h-11 max-w-[88%] object-contain"
+                              onerror="this.closest('.pay-tile').querySelector('.pay-label').classList.remove('sr-only'); this.remove()">
                           {% endif %}
                         {% else %}
                           <!-- Simple banknote icon for cash -->
@@ -78,7 +80,8 @@
                             <path stroke-linecap="round" d="M6 9.5v5M18 9.5v5" />
                           </svg>
                         {% endif %}
-                        <span class="text-sm font-medium text-slate-700">{{ label }}</span>
+                        <!-- Name is visible for Cash; for logo tiles it is kept for screen readers only -->
+                        <span class="pay-label text-sm font-medium text-slate-700 {% if logo %}sr-only{% endif %}">{{ label }}</span>
                       </span>
                     </label>
                   {% endfor %}

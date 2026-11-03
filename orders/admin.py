@@ -29,7 +29,7 @@ class OrderItemAdmin(admin.ModelAdmin):
 class BillAdmin(admin.ModelAdmin):
     list_display = ["bill_number", "table", "total", "payment_method", "billed_by", "created_at"]
     list_filter = ["payment_method", "created_at"]
-    readonly_fields = ["subtotal", "service_charge", "vat", "total", "created_at"]
+    readonly_fields = ["total", "created_at"]
 
 
 admin.site.register(KitchenStation)

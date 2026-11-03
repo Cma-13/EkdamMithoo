@@ -1,5 +1,8 @@
-from django.db import models
+from decimal import Decimal, ROUND_HALF_UP
 import uuid
+
+from django.conf import settings
+from django.db import models
 
 class Table(models.Model):
     name = models.CharField(max_length=20)
@@ -60,6 +63,53 @@ class MenuItem(models.Model):
         return self.name
 
 
+class Bill(models.Model):
+    """A saved payment for one table visit (can cover several orders)."""
+
+    class PAYMENT_METHOD(models.TextChoices):
+        CASH = 'cash', 'Cash'
+        ESEWA = 'esewa', 'eSewa'
+        KHALTI = 'khalti', 'Khalti'
+        CARD = 'card', 'Card'
+
+    table = models.ForeignKey(Table, on_delete=models.PROTECT, related_name='bills')
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    service_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    vat = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD, default=PAYMENT_METHOD.CASH)
+    billed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='bills'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.bill_number} - {self.table} - Rs. {self.total}"
+
+    @property
+    def bill_number(self):
+        return f"B-{self.pk:05d}" if self.pk else "B-NEW"
+
+    @staticmethod
+    def calculate(subtotal):
+        """Return subtotal, service charge, VAT and total as Decimals.
+        Service charge is on the subtotal, VAT is on subtotal + service charge
+        (the usual way restaurants in Nepal bill)."""
+        two_places = Decimal('0.01')
+        subtotal = Decimal(subtotal).quantize(two_places)
+        service_charge = (subtotal * Decimal(settings.SERVICE_CHARGE_PERCENT) / 100).quantize(two_places, ROUND_HALF_UP)
+        vat = ((subtotal + service_charge) * Decimal(settings.VAT_PERCENT) / 100).quantize(two_places, ROUND_HALF_UP)
+        return {
+            'subtotal': subtotal,
+            'service_charge': service_charge,
+            'vat': vat,
+            'total': subtotal + service_charge + vat,
+        }
+
+
 class Order(models.Model):
     class ORDER_STATUS(models.TextChoices):
         PENDING = 'p', 'Pending'
@@ -72,6 +122,7 @@ class Order(models.Model):
     table = models.ForeignKey(Table, on_delete=models.PROTECT, related_name='orders')
     status = models.CharField(max_length=2, choices=ORDER_STATUS, default=ORDER_STATUS.PENDING)
     created_at =  models.DateTimeField(auto_now_add=True)
+    bill = models.ForeignKey(Bill, on_delete=models.PROTECT, null=True, blank=True, related_name='orders')
     
     def __str__(self):
         return f"{self.table} -> {self.created_at}"
@@ -93,7 +144,7 @@ class OrderItem(models.Model):
 
     
     def __str__(self):
-        return f"{self.menu_item} X {self.quantity} qtys"
+        return f"{self.menu_item} × {self.quantity}"
     
     
 class OrderHistory(models.Model):

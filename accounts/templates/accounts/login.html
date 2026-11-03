@@ -1,101 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Staff login | {{ restaurant.name }}</title>
 
-    <!-- Tailwind CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@400;500;600;700&family=Rozha+One&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-
-
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        paper: '#F7EFE2', clay: '#EADBC4', line: '#DCC9AC',
+                        wood: '#2B1A12', sindoor: '#9E1B1B', 'sindoor-dark': '#7E1414', brass: '#B8862F',
+                    },
+                    fontFamily: { sans: ['Mukta', 'sans-serif'], display: ['"Rozha One"', 'serif'] },
+                }
+            }
+        }
+    </script>
+    <style>
+        .dhaka-band {
+            height: 16px;
+            background:
+                linear-gradient(135deg, #9E1B1B 25%, transparent 25%) -8px 0 / 16px 16px,
+                linear-gradient(225deg, #9E1B1B 25%, transparent 25%) -8px 0 / 16px 16px,
+                linear-gradient(315deg, #2B1A12 25%, transparent 25%) 0 0 / 16px 16px,
+                linear-gradient(45deg, #2B1A12 25%, #B8862F 25%) 0 0 / 16px 16px;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
 
-    <div class="w-full max-w-sm bg-white shadow-md rounded-lg p-8">
-        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
-            Login
-        </h2>
-        {%  for message in messages  %}
-        <p class="text-red-500">{{message}}</p>
-        {% endfor %}
+<body class="bg-paper text-wood min-h-screen flex flex-col">
+    <div class="dhaka-band" aria-hidden="true"></div>
 
-        <form method="POST"  >
-            {% csrf_token %}
-            <!-- Username -->
-            <div class="mb-4">
-                <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
-                    Username
-                </label>
-                <input
-                    type="text"
-                    id="username"
-                    placeholder="Enter username"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                    name="username"
-                >
+    <main class="flex-1 flex items-center justify-center px-4 py-12">
+        <div class="w-full max-w-sm">
+            <div class="text-center mb-8">
+                <a href="{% url 'home_view' %}" class="inline-block leading-none">
+                    <span class="block font-display text-4xl text-sindoor">{{ restaurant.name }}</span>
+                    <span class="block text-wood/60 mt-1" lang="ne">{{ restaurant.name_nepali }}</span>
+                </a>
             </div>
 
-            <!-- Password -->
-            <div class="mb-4">
-                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                </label>
-                <div class="relative"> 
-                     <input
-                    type="password"
-                  
-                    placeholder="Enter password"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                    name="password"
-                    id = "password-field"
-                >
-                <i id = "toggle-icon" onClick ='togglePassword()' class="fa fa-eye absolute top-3 right-3" aria-hidden="true"></i>
+            <div class="bg-white border border-line rounded-lg p-8">
+                <h1 class="text-2xl font-bold text-wood">Staff login</h1>
+                <p class="text-wood/60 mb-6">For waiters, kitchen, billing and the owner.</p>
 
-                </div>
-               
+                {% for message in messages %}
+                    <p class="mb-4 rounded-md px-4 py-3 border
+                        {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-amber-50 border-amber-200 text-amber-800{% endif %}">
+                        {{ message }}
+                    </p>
+                {% endfor %}
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label for="username" class="block font-semibold mb-1.5">Username</label>
+                        <input type="text" id="username" name="username" required autocomplete="username" autofocus
+                            class="w-full px-3.5 py-2.5 rounded-md border border-line text-lg focus:outline-none focus:ring-2 focus:ring-sindoor">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password-field" class="block font-semibold mb-1.5">Password</label>
+                        <div class="relative">
+                            <input type="password" id="password-field" name="password" required autocomplete="current-password"
+                                class="w-full pl-3.5 pr-12 py-2.5 rounded-md border border-line text-lg focus:outline-none focus:ring-2 focus:ring-sindoor">
+                            <button type="button" id="toggle-password" aria-label="Show password"
+                                class="absolute inset-y-0 right-0 px-3 text-wood/50 hover:text-wood focus:outline-none focus-visible:ring-2 focus-visible:ring-sindoor rounded-r-md">
+                                <!-- eye icon -->
+                                <svg id="eye-open" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                <!-- eye with slash -->
+                                <svg id="eye-closed" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                    <path stroke-linecap="round" d="M4 4l16 16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <label class="flex items-center gap-2 mb-6 cursor-pointer">
+                        <input type="checkbox" name="remember-me" class="w-4 h-4 accent-sindoor">
+                        <span>Keep me logged in</span>
+                    </label>
+
+                    <button type="submit"
+                        class="w-full bg-sindoor hover:bg-sindoor-dark text-white text-lg font-semibold py-3 rounded-md transition-colors">
+                        Log in
+                    </button>
+                </form>
             </div>
 
-            <!-- Remember Me -->
-            <div class="flex items-center mb-6">
-                <input
-                    type="checkbox"
-                    id="remember"
-                    name="remember-me"
-                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                >
-                <label for="remember" class="ml-2 text-sm text-gray-700">
-                    Remember Me
-                </label>
-            </div>
+            <p class="text-center mt-6">
+                <a href="{% url 'home_view' %}" class="text-wood/60 hover:text-wood underline underline-offset-4">Back to the website</a>
+            </p>
+        </div>
+    </main>
 
-            <!-- Login Button -->
-            <button
-                type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-md transition duration-200"
-            >
-                Login
-            </button>
-        </form>
-    </div>
-<script>
-    function togglePassword() {
+    <script>
         const passwordField = document.getElementById('password-field')
-        const toggleIcon = document.getElementById('toggle-icon')
-
-        if (passwordField.type == "password") {
-            passwordField.type = "text"
-            toggleIcon.classList.remove('fa-eye')
-            toggleIcon.classList.add('fa-eye-slash')
-        } else {
-            passwordField.type = "password"
-            toggleIcon.classList.remove('fa-eye-slash')
-            toggleIcon.classList.add('fa-eye')
-        }
-        }
-</script>
+        const toggle = document.getElementById('toggle-password')
+        toggle.addEventListener('click', () => {
+            const show = passwordField.type === 'password'
+            passwordField.type = show ? 'text' : 'password'
+            toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password')
+            document.getElementById('eye-open').classList.toggle('hidden', show)
+            document.getElementById('eye-closed').classList.toggle('hidden', !show)
+        })
+    </script>
 </body>
+
 </html>

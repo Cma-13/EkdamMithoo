@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.contrib.staticfiles import finders
 from django.db import transaction
 from django.db.models import Avg, Count, Exists, OuterRef, F, Prefetch, Sum, IntegerField, ExpressionWrapper
 from django.db.models.functions import TruncDate
@@ -573,6 +574,12 @@ def reservation_status_view(request, pk):
 # Public website
 # ---------------------------------------------------------------
 
+# Website hero photo: put your own photo at static/orders/images/website-hero.jpg.
+# Until that file exists, the thali photo is used.
+HERO_IMAGE = "orders/images/website-hero.jpg"
+HERO_FALLBACK = "orders/images/thali set.jpg"
+
+
 def render_home(request, form, status=200):
     categories = Category.objects.prefetch_related(
         Prefetch("items", queryset=MenuItem.objects.order_by("price", "name"))
@@ -583,6 +590,7 @@ def render_home(request, form, status=200):
         "categories": categories,
         "form": form,
         "booked": request.GET.get("booked") == "1",
+        "hero_image": HERO_IMAGE if finders.find(HERO_IMAGE) else HERO_FALLBACK,
     }, status=status)
 
 

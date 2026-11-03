@@ -1,4 +1,3 @@
-from decimal import Decimal, ROUND_HALF_UP
 import uuid
 
 from django.conf import settings
@@ -70,12 +69,17 @@ class Bill(models.Model):
         CASH = 'cash', 'Cash'
         ESEWA = 'esewa', 'eSewa'
         KHALTI = 'khalti', 'Khalti'
-        CARD = 'card', 'Card'
+        FONEPAY = 'fonepay', 'Fonepay'
+
+    # Logo files in static/orders/images/payments/ (Cash uses an icon instead).
+    # "dark" = the logo has white text, so it is shown on a dark badge.
+    PAYMENT_LOGOS = {
+        'esewa': {'path': 'orders/images/payments/esewa.png', 'dark': True},
+        'khalti': {'path': 'orders/images/payments/khalti.png', 'dark': False},
+        'fonepay': {'path': 'orders/images/payments/fonepay.webp', 'dark': True},
+    }
 
     table = models.ForeignKey(Table, on_delete=models.PROTECT, related_name='bills')
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
-    service_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    vat = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHOD, default=PAYMENT_METHOD.CASH)
     billed_by = models.ForeignKey(
@@ -92,22 +96,6 @@ class Bill(models.Model):
     @property
     def bill_number(self):
         return f"B-{self.pk:05d}" if self.pk else "B-NEW"
-
-    @staticmethod
-    def calculate(subtotal):
-        """Return subtotal, service charge, VAT and total as Decimals.
-        Service charge is on the subtotal, VAT is on subtotal + service charge
-        (the usual way restaurants in Nepal bill)."""
-        two_places = Decimal('0.01')
-        subtotal = Decimal(subtotal).quantize(two_places)
-        service_charge = (subtotal * Decimal(settings.SERVICE_CHARGE_PERCENT) / 100).quantize(two_places, ROUND_HALF_UP)
-        vat = ((subtotal + service_charge) * Decimal(settings.VAT_PERCENT) / 100).quantize(two_places, ROUND_HALF_UP)
-        return {
-            'subtotal': subtotal,
-            'service_charge': service_charge,
-            'vat': vat,
-            'total': subtotal + service_charge + vat,
-        }
 
 
 class Order(models.Model):

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Table, Category, MenuItem, Order, OrderItem, OrderHistory, KitchenStation
+from .models import Bill, Table, Category, MenuItem, Order, OrderItem, OrderHistory, KitchenStation
 
 @admin.register(Table)
 class TableAdmin(admin.ModelAdmin):
@@ -24,6 +24,13 @@ class OrderItemAdmin(admin.ModelAdmin):
     list_editable = ["status"]
     
     
+
+@admin.register(Bill)
+class BillAdmin(admin.ModelAdmin):
+    list_display = ["bill_number", "table", "total", "payment_method", "billed_by", "created_at"]
+    list_filter = ["payment_method", "created_at"]
+    readonly_fields = ["subtotal", "service_charge", "vat", "total", "created_at"]
+
 
 admin.site.register(KitchenStation)
 admin.site.register(Category)

@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Avg, Count, Exists, OuterRef, F, Sum, IntegerField, ExpressionWrapper
+from django.db.models import Avg, Count, Exists, OuterRef, F, Prefetch, Sum, IntegerField, ExpressionWrapper
 from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.urls import reverse
@@ -14,7 +14,8 @@ from urllib.parse import urlencode
 
 from accounts.models import User
 from .decorators import role_required
-from .models import Bill, Table, Category, Order, OrderItem, MenuItem, KitchenStation
+from .forms import ReservationForm
+from .models import Bill, Reservation, Table, Category, Order, OrderItem, MenuItem, KitchenStation
 from .utils import print_restaurant_receipt
 from . import signals  # noqa: F401  (registers the signal handlers)
 
@@ -456,6 +457,8 @@ def owner_dashboard_view(request):
         Order.objects.exclude(status__in=INACTIVE_ORDER_STATUSES).values("table").distinct().count()
     )
     in_kitchen = OrderItem.objects.filter(status=OrderItem.ITEM_STATUS.PREPARING).count()
+    todays_bookings = Reservation.objects.filter(date=today).exclude(status=Reservation.STATUS.CANCELLED)
+    pending_bookings = Reservation.objects.filter(date__gte=today, status=Reservation.STATUS.PENDING).count()
 
     return render(request, "orders/owner-dashboard.html", {
         "range_key": range_key,
@@ -472,6 +475,9 @@ def owner_dashboard_view(request):
         "active_tables": active_tables,
         "total_tables": Table.objects.count(),
         "in_kitchen": in_kitchen,
+        "todays_bookings": todays_bookings.count(),
+        "todays_guests": todays_bookings.aggregate(total=Sum("guests"))["total"] or 0,
+        "pending_bookings": pending_bookings,
         "recent_bills": bills.select_related("table", "billed_by")[:10],
     })
 
@@ -510,8 +516,85 @@ def owner_bills_view(request):
 
 
 # ---------------------------------------------------------------
-# Public landing page
+# Owner: reservations
 # ---------------------------------------------------------------
 
+RESERVATION_TABS = {
+    "upcoming": "Upcoming",
+    "today": "Today",
+    "past": "Past",
+}
+
+
+@role_required([User.ROLE_CHOICES.OWNER])
+def owner_reservations_view(request):
+    tab = request.GET.get("tab", "upcoming")
+    if tab not in RESERVATION_TABS:
+        tab = "upcoming"
+
+    today = timezone.localdate()
+    reservations = Reservation.objects.all()
+    if tab == "today":
+        reservations = reservations.filter(date=today)
+    elif tab == "upcoming":
+        reservations = reservations.filter(date__gte=today).exclude(
+            status__in=[Reservation.STATUS.CANCELLED, Reservation.STATUS.ARRIVED]
+        )
+    else:
+        reservations = reservations.filter(date__lt=today).order_by("-date", "-time")
+
+    return render(request, "orders/owner-reservations.html", {
+        "tab": tab,
+        "tabs": RESERVATION_TABS.items(),
+        "reservations": reservations[:200],
+        "pending_count": Reservation.objects.filter(
+            date__gte=today, status=Reservation.STATUS.PENDING
+        ).count(),
+    })
+
+
+@require_POST
+@role_required([User.ROLE_CHOICES.OWNER])
+def reservation_status_view(request, pk):
+    reservation = get_object_or_404(Reservation, pk=pk)
+    new_status = request.POST.get("status")
+    if new_status not in Reservation.STATUS.values:
+        messages.warning(request, "Unknown action.")
+    else:
+        reservation.status = new_status
+        reservation.save(update_fields=["status"])
+        messages.success(request, f"Booking for {reservation.name} marked as {reservation.get_status_display().lower()}.")
+
+    tab = request.POST.get("tab") or "upcoming"
+    return redirect(f"{reverse('owner_reservations_url')}?{urlencode({'tab': tab})}")
+
+
+# ---------------------------------------------------------------
+# Public website
+# ---------------------------------------------------------------
+
+def render_home(request, form, status=200):
+    categories = Category.objects.prefetch_related(
+        Prefetch("items", queryset=MenuItem.objects.order_by("price", "name"))
+    ).filter(items__isnull=False).distinct().order_by("id")
+
+    return render(request, "orders/home.html", {
+        "featured_items": MenuItem.objects.filter(is_featured=True).select_related("category")[:3],
+        "categories": categories,
+        "form": form,
+        "booked": request.GET.get("booked") == "1",
+    }, status=status)
+
+
 def home_view(request):
-    return render(request, "orders/home.html")
+    return render_home(request, ReservationForm())
+
+
+@require_POST
+def reservation_create_view(request):
+    form = ReservationForm(request.POST)
+    if form.is_valid():
+        form.save()
+        return redirect(f"{reverse('home_view')}?booked=1#book")
+    # Show the page again with the errors next to the fields
+    return render_home(request, form, status=400)

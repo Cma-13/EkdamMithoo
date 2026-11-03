@@ -14,6 +14,6 @@ def get_home_url(user):
     if role == User.ROLE_CHOICES.BILLING:
         return reverse("tables_for_billing_url")
     if role == User.ROLE_CHOICES.OWNER or user.is_superuser:
-        return reverse("admin:index")
+        return reverse("owner_dashboard_url")
 
     return None

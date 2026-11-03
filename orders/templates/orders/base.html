@@ -69,6 +69,79 @@
 
     </main>
 
+    <!-- Confirm modal: used by any form with data-confirm="message" -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4"
+        role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div data-confirm-close class="absolute inset-0 bg-slate-900/50"></div>
+
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div class="p-6">
+                <h2 id="confirm-title" class="text-lg font-semibold text-slate-900">Are you sure?</h2>
+                <p id="confirm-message" class="mt-2 text-slate-600"></p>
+            </div>
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <button type="button" data-confirm-close
+                    class="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium hover:bg-slate-100 transition">
+                    Go back
+                </button>
+                <button type="button" id="confirm-ok"
+                    class="px-4 py-2 rounded-lg text-white font-medium transition"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const modal = document.getElementById('confirm-modal');
+            const titleEl = document.getElementById('confirm-title');
+            const messageEl = document.getElementById('confirm-message');
+            const okBtn = document.getElementById('confirm-ok');
+            const okStyles = {
+                danger: 'bg-red-600 hover:bg-red-700',
+                success: 'bg-green-600 hover:bg-green-700',
+            };
+            let pendingForm = null;
+
+            function openModal(form) {
+                pendingForm = form;
+                titleEl.textContent = form.dataset.confirmTitle || 'Are you sure?';
+                messageEl.textContent = form.dataset.confirm;
+                okBtn.textContent = form.dataset.confirmButton || 'Confirm';
+                okBtn.className = 'px-4 py-2 rounded-lg text-white font-medium transition '
+                    + (okStyles[form.dataset.confirmVariant] || okStyles.success);
+                modal.classList.remove('hidden');
+                okBtn.focus();
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+                pendingForm = null;
+            }
+
+            // Intercept submit of any form that asks for confirmation
+            document.addEventListener('submit', (event) => {
+                const form = event.target;
+                if (form.dataset.confirm && !form.dataset.confirmed) {
+                    event.preventDefault();
+                    openModal(form);
+                }
+            });
+
+            okBtn.addEventListener('click', () => {
+                if (!pendingForm) return;
+                const form = pendingForm;
+                form.dataset.confirmed = 'true';
+                okBtn.disabled = true;
+                form.submit();
+            });
+
+            modal.querySelectorAll('[data-confirm-close]').forEach((el) => el.addEventListener('click', closeModal));
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+            });
+        })();
+    </script>
+
     {% block extra_script %}
     {% endblock %}
 

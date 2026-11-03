@@ -33,6 +33,15 @@
           <span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1"></span>
           {{ in_kitchen }} item{{ in_kitchen|pluralize }} in the kitchen
         </span>
+        <a href="{% url 'owner_reservations_url' %}?tab=today" class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">
+          <span class="inline-block w-2 h-2 rounded-full bg-green-600 mr-1"></span>
+          {{ todays_bookings }} booking{{ todays_bookings|pluralize }} today ({{ todays_guests }} guest{{ todays_guests|pluralize }})
+        </a>
+        {% if pending_bookings %}
+          <a href="{% url 'owner_reservations_url' %}" class="px-3 py-1.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 font-medium hover:bg-amber-200">
+            {{ pending_bookings }} booking{{ pending_bookings|pluralize }} to confirm
+          </a>
+        {% endif %}
       </div>
     </div>
 

@@ -102,6 +102,19 @@
                 </form>
             </div>
 
+            {% if show_demo_logins %}
+                <div class="mt-6 bg-white/60 border border-line rounded-lg p-5">
+                    <p class="font-semibold">Trying the demo?</p>
+                    <p class="text-wood/70 text-sm mb-3">Log in as any role. The password for all is <span class="font-semibold text-wood">demo12345</span>.</p>
+                    <ul class="grid grid-cols-2 gap-2 text-sm">
+                        <li><span class="font-semibold">waiter</span>: take orders</li>
+                        <li><span class="font-semibold">kitchen</span>: cook orders</li>
+                        <li><span class="font-semibold">billing</span>: take payment</li>
+                        <li><span class="font-semibold">owner</span>: see reports</li>
+                    </ul>
+                </div>
+            {% endif %}
+
             <p class="text-center mt-6">
                 <a href="{% url 'home_view' %}" class="text-wood/60 hover:text-wood underline underline-offset-4">Back to the website</a>
             </p>

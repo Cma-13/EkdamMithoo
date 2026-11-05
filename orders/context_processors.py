@@ -21,5 +21,6 @@ def restaurant(request):
             "email": settings.RESTAURANT_EMAIL,
             "opening_time": friendly_time(settings.OPENING_TIME),
             "closing_time": friendly_time(settings.CLOSING_TIME),
-        }
+        },
+        "show_demo_logins": settings.SHOW_DEMO_LOGINS,
     }

@@ -31,6 +31,16 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# Full site address(es) for form security on the live server, e.g. https://name.pythonanywhere.com
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o]
+
+# On the live server (DEBUG off) only send login cookies over HTTPS
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+# Show the demo logins on the staff login page (turn on for the public demo)
+SHOW_DEMO_LOGINS = os.environ.get('DJANGO_SHOW_DEMO_LOGINS', 'False') == 'True'
+
 
 # Application definition
 
@@ -124,6 +134,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# Where "python manage.py collectstatic" gathers static files for the live server
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Uploaded files (menu photos)
 MEDIA_URL = 'media/'

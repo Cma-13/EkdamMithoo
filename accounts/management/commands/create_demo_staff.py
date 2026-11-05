@@ -7,8 +7,9 @@ DEMO_STAFF = [
     {"username": "waiter", "first_name": "Demo", "last_name": "Waiter", "role": User.ROLE_CHOICES.WAITER},
     {"username": "kitchen", "first_name": "Demo", "last_name": "Kitchen", "role": User.ROLE_CHOICES.KITCHEN},
     {"username": "billing", "first_name": "Demo", "last_name": "Cashier", "role": User.ROLE_CHOICES.BILLING},
-    # Owner gets staff status so the "Manage Menu & Staff" (Django admin) link works
-    {"username": "owner", "first_name": "Demo", "last_name": "Owner", "role": User.ROLE_CHOICES.OWNER, "is_staff": True},
+    # The demo owner sees the owner dashboard but not Django admin, so public
+    # visitors can't change the menu or users. Use createsuperuser for your own admin login.
+    {"username": "owner", "first_name": "Demo", "last_name": "Owner", "role": User.ROLE_CHOICES.OWNER},
 ]
 
 

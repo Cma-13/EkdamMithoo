@@ -20,3 +20,6 @@ Thumbs.db
 
 # Uploaded menu photos
 media/
+
+# Collected static files (live server)
+staticfiles/

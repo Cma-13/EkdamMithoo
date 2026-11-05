@@ -107,7 +107,7 @@ Open **http://127.0.0.1:8000** for the website. Click **Staff login** and use on
 | `waiter` | `demo12345` | Waiter |
 | `kitchen` | `demo12345` | Kitchen |
 | `billing` | `demo12345` | Billing |
-| `owner` | `demo12345` | Owner (can also open Django admin) |
+| `owner` | `demo12345` | Owner |
 
 **Tip:** open each role in a different browser (or a private window) to watch an order move from waiter to kitchen to billing live.
 
@@ -119,6 +119,7 @@ Open **http://127.0.0.1:8000** for the website. Click **Staff login** and use on
 | `create_basic_menuitems` | Adds kitchen stations, categories and 18 Nepali dishes |
 | `setup_website_menu` | Adds descriptions, photos and featured dishes for the website (safe to run again) |
 | `create_demo_staff` | Creates one login for each role (use `--password` to choose your own) |
+| `createsuperuser` | Creates your own admin login for Django admin (menu, tables, staff) |
 
 ### Run the tests
 
